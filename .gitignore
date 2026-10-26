@@ -222,7 +222,7 @@ __marimo__/
 # Large files like images, models, and videos
 /Images/
 /Videos/
-/Models/
+/Models/huggingface/
 
 
 # Model weights (checkpoints, LoRAs, VAEs, etc.), ignored by extension anywhere in the repo
