@@ -1,0 +1,1 @@
+# TODO: Implement web interface for image and video generation pipeline

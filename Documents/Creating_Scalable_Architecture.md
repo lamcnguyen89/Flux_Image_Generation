@@ -133,3 +133,69 @@ Only the weights and JSON are essential; notes and previews are optional. Paths 
 The family’s `family.json` holds shared defaults. Each `checkpoint.json` or `lora.json` adds its own metadata, requirements, and settings.
 
 Your current flat checkpoint layout also works, so individual folders aren’t mandatory. They become useful as you add previews, documentation, and multiple versions. Moving to this structure would require updating the notebook paths again.
+
+## So alot of the LoRAS for the models have their own custom keywords, default prompts, generation settins, etc... What would be a scalable way to contain this data for each Lora and model that the Lora belongs to? Would a JSON file for each LoRA be good for this? Also Each model family has its own unique settinggs. Would a Json file be good for storing these unique settings? Eventually, I will move on from the Jupyter Notebooks since I will be building a simple flask application for the image and video generation.
+
+**Yes—a `.venv` inside the project root is a good direction.** For your application, I’d pair it with a dependency definition and lockfile so the environment can be recreated reliably.
+
+Conda already provides isolation. The larger improvement is making installation reproducible and moving generation logic into a shared Python package.
+
+**For the environment, I recommend:**
+
+- `pyproject.toml` to declare the application and its dependencies.
+- `uv.lock` to record resolved dependency versions.
+- `.venv/` for the installed environment, excluded from Git.
+- A documented Python version compatible with your GPU packages.
+
+`uv` can manage the project environment and synchronize it with its lockfile. [uv documentation](https://docs.astral.sh/uv/concepts/projects/sync/)
+
+Treat `.venv` as something you recreate on each machine. Python environments are generally unsuitable for copying between machines or locations. [Python documentation](https://docs.python.org/3/library/venv.html)
+
+**Your Thor GPU stack needs special attention during migration.** A virtual environment isolates Python packages; it doesn’t package the entire operating system or NVIDIA driver stack. NVIDIA’s Jetson PyTorch packages target specified JetPack versions. [NVIDIA documentation](https://docs.nvidia.com/deeplearning/frameworks/install-pytorch-jetson-platform/index.html)
+
+I would preserve your working Conda environment until the new environment passes actual image and video generation checks. Record the working Python, PyTorch, CUDA/JetPack versions, and PyTorch installation source first. Include any special PyTorch wheel or package index in the dependency setup so later synchronization preserves that choice.
+
+For the application itself, I’d organize it approximately like this:
+
+```text
+Image_Generator/
+├── pyproject.toml
+├── uv.lock
+├── .python-version
+├── .venv/                     # Generated locally; ignored by Git
+├── .env                       # Local paths and credentials
+├── .env.example
+├── src/
+│   └── image_generator/
+│       ├── web/               # Flask routes, templates, static files
+│       ├── catalog/           # JSON discovery and validation
+│       ├── pipelines/         # SDXL, FLUX, WAN implementations
+│       ├── generation.py      # Shared generation interface
+│       └── worker.py          # Queued generation jobs
+├── Models/
+│   └── Model_Families/         # Weights, manifests, notes, previews
+├── Images/
+├── Videos/
+├── data/                      # Job database and application state
+├── tests/
+└── Documents/
+```
+
+The responsibilities would be:
+
+| Component | Responsibility |
+|---|---|
+| Model catalog | Discover families, checkpoints, and LoRAs; validate their JSON |
+| Configuration resolver | Combine defaults, selections, and user settings |
+| Pipeline implementations | Load models, manage adapters, generate outputs |
+| GPU worker | Own loaded models and process generation jobs |
+| Flask application | Present controls, submit jobs, report progress and results |
+| Notebooks | Call the same generation code during experimentation |
+
+For your initial local application, I’d use **one GPU worker processing one generation job at a time**. That keeps model ownership and memory usage predictable. Flask submits a job and returns its ID while the worker generates the image or video. Flask’s documentation recommends sending long-running work to another process through a task queue. [Flask background-task documentation](https://flask.palletsprojects.com/en/stable/patterns/celery/)
+
+You can initially run Flask and that worker from the **same `.venv`**. Separate processes don’t require separate environments. Add separate worker environments only if model families develop incompatible dependencies.
+
+I’d also replace the notebooks’ repeated `%pip install --upgrade ...` cells with centrally managed dependencies, keeping Jupyter tooling optional. This gives both the notebooks and Flask the same tested generation code.
+
+A GPU container can come later if you want to package more system dependencies. For now, a reproducible project environment, shared Python package, JSON model catalog, and dedicated GPU worker would give you a manageable foundation.

@@ -1,0 +1,5 @@
+# Optional tooling, installed by scripts/setup.sh --dev.
+# Constrain runtime dependencies so tooling cannot silently upgrade them.
+-c requirements.txt
+pip-tools==7.6.2
+ipykernel==7.4.0
