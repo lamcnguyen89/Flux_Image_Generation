@@ -1,0 +1,139 @@
+(Website Links)[https://civitai.red/models/133808/pyros-nsfw-sdxl?modelVersionId=324958]
+
+Like what you see? Help me create more models by supporting my work. SDXL fine-tuning is expensive as fuck compared to SD1.5. 👌
+
+❤️❤️ Support Here ❤️❤️
+
+Want more info? Click on 'Show more,' and check out my images for prompt ideas!
+
+Have fun with this model! 💦
+
+Don't forget to ⭐⭐⭐⭐⭐ my model if you like it!
+
+Discord channel
+
+https://discord.gg/r2tJpTv4
+
+Join if you want to share prompts and discuss features/concepts for future versions.
+
+Updates v0.5:
+
+    (Almost) no watermarks
+
+    more concepts
+
+        facial
+
+        prone bone
+
+        vaginal
+
+        fisting
+
+        feet / footjob (it's a bit iffy)
+
+        deepthroat
+
+    it's a little bit overtrained. so use a sensible/lower CFG value.
+
+Updates v0.4:
+
+    Easier prompting
+
+    Better style adherance
+
+    more concepts
+
+        titty fuck
+
+        kissing
+
+        some lesbian stuff
+
+        cum
+
+    more details - sometimes even good hands! wow!
+
+    more variety in faces and stuff
+
+Prompting guide
+
+I can recommend to build the prompts this way:
+
+{tags}, {motif}, {style}
+
+For example:
+
+pov, medium breasts, a beautiful woman is getting fucked by a huge penis, professional photo
+
+Use tags for negative prompt to get for example non-nude pictures and so on.
+
+Motifs are “normal language” descriptions of what you want to see like for example:
+
+    A woman getting fucked by a huge penis
+
+    A fitness model is sucking a big cock
+
+    My wife riding a man
+
+See my album for ideas.
+
+Supported tags:
+
+    pov - “point of view”
+
+    Small breasts, medium breasts, large breasts
+
+    Looking at viewer
+
+    Penis
+
+    Pussy
+
+    Ass grab
+
+    Kiss, French kiss
+
+    lesbian
+
+    Nipples
+
+    Titty fuck
+
+    Cum
+
+    Solo, solo focus
+
+    Nude
+
+    facial
+
+    prone bone
+
+    vaginal
+
+    fisting
+
+    feet / footjob (it's a bit iffy)
+
+    deepthroat
+
+Prefered resolution is 832x1216 - cfg 5-7
+
+What's next?
+
+Going to try SDXL turbo.
+
+If you want to see a specific concept let me know!
+
+Some technical stuff:
+
+Training framework: Kohya's on RunPod A100
+
+Dataset: 20.000 images
+
+Batch size: 16
+
+Steps: 110.000
+
+Learning Rate: 5e-6

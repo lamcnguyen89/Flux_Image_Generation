@@ -1,0 +1,16 @@
+
+(Website Link)[https://civitai.red/models/1688726/nsfw-flux-mystic-toon?modelVersionId=1911266]
+
+Recommended Usage:
+
+    Checkpoint: flux1-dev
+
+    Strength: 1 (adjust depending on the image)
+
+    Sampling Method: DPMPP_2M
+
+    Scheduler Type: BETA
+
+    CFG Scale: 4
+
+    Steps: 35
