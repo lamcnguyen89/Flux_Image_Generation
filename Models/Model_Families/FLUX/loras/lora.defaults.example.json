@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "id": "lora_REPLACE_WITH_GENERATED_UUID",
+  "display_name": "Example FLUX LoRA",
+  "description": "Example FLUX.1-dev adapter configuration. Replace identity, asset paths, and settings before use.",
+  "family": "flux",
+  "adapter_type": "lora",
+  "source_url": null,
+  "source_model_id": null,
+  "source_version_id": null,
+  "weights": "example_flux_lora.safetensors",
+  "sha256": null,
+  "notes_file": null,
+  "preview_image": null,
+  "compatibility": {
+    "model_variant": "flux_1_dev",
+    "trained_on": null,
+    "verified_checkpoint_ids": [],
+    "notes": ""
+  },
+  "settings": {
+    "strength": 0.8,
+    "trigger_words": [
+      "example_style"
+    ],
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {
+      "num_inference_steps": 30,
+      "guidance_scale": 3.5,
+      "true_cfg_scale": 1.0,
+      "sampling": {
+        "sampler": "flow_match_euler",
+        "noise_schedule": "default"
+      }
+    }
+  }
+}

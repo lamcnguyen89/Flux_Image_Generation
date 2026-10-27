@@ -1,1 +1,29 @@
-{}
+{
+  "schema_version": 1,
+  "id": "lora_a2deb732-63c7-4b1e-8e60-06af7ca950a1",
+  "display_name": "NSFW Master",
+  "description": "Local adapter catalog entry: NSFW Master.",
+  "family": "flux",
+  "adapter_type": "lora",
+  "source_url": "https://civitai.red/models/667086/nsfw-master?modelVersionId=746602",
+  "source_model_id": "667086",
+  "source_version_id": "746602",
+  "weights": "master.safetensors",
+  "sha256": null,
+  "notes_file": "Master_Notes.md",
+  "preview_image": null,
+  "compatibility": {
+    "model_variant": "flux_1_dev",
+    "trained_on": null,
+    "verified_checkpoint_ids": [],
+    "notes": "Original weight metadata: ss_base_model_version says sd_1.5, but tensor keys use FLUX-style transformer.single_transformer_blocks with 3072-wide attention. Catalog classification is flux / flux_1_dev by user override. Checkpoint compatibility has not been tested. Live source metadata could not be retrieved: the linked CivitAI version pages were unavailable through the browsing tools; values here come from local notes and weight headers. Initial strength 0.8 is the existing FLUX notebook fallback, not a verified creator recommendation. Undocumented trigger words and generation recommendations are left empty."
+  },
+  "settings": {
+    "strength": 0.8,
+    "trigger_words": [],
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {}
+  }
+}

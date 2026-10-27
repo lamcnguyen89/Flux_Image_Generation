@@ -1,1 +1,32 @@
-{}
+{
+  "schema_version": 1,
+  "id": "lora_e901a38c-b9f9-4ae1-b4cb-a2508e0613e5",
+  "display_name": "WAN Doggy POV v1.1",
+  "description": "Local WAN adapter catalog entry: WAN Doggy POV v1.1.",
+  "family": "wan",
+  "adapter_type": "lora",
+  "source_url": "https://civitai.red/models/1361228/wan-pov-doggy-style-i2v?modelVersionId=1545040",
+  "source_model_id": "1361228",
+  "source_version_id": "1545040",
+  "weights": "03_doggyPOV_v1_1.safetensors",
+  "sha256": null,
+  "notes_file": "03_doggy_POV_Notes.md",
+  "preview_image": null,
+  "compatibility": {
+    "model_variant": null,
+    "expert_target": null,
+    "trained_on": null,
+    "verified_checkpoint_ids": [],
+    "notes": "Local notes identify image-to-video training on a 480p 14B model but do not explicitly establish a WAN 2.2 expert target. The adapter includes cross-attention image-projection keys (k_img), so WAN 2.2 I2V A14B compatibility is not assumed. model_variant and expert_target are null pending confirmation. Strength 0.8 is the notebook fallback; the 0.4-0.5 strength in the notes is for a separate companion LoRA, not this adapter. POVdog is explicitly documented as the trigger. Notes report possible issues with wide aspect ratios. Checkpoint compatibility has not been tested. Metadata was populated from local notes and weight headers."
+  },
+  "settings": {
+    "strength": 0.8,
+    "trigger_words": [
+      "POVdog"
+    ],
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {}
+  }
+}

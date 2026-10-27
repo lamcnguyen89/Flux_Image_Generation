@@ -3,7 +3,7 @@
 Local image and video generation using model family workflows and a planned Flask
 interface. Model assets and experiment notebooks live in `Models/Model_Families/`.
 See the [model folder layout](Models/Model_Families/README.md) for the checkpoint
-and LoRA folders and their empty default/user JSON placeholders.
+and LoRA folders, SDXL/FLUX/WAN configurations, and reusable JSON examples.
 
 The application scaffold is in `src/image_generator/`. Each model family workflow
 is currently a TODO placeholder; generation is still explored in the notebooks.

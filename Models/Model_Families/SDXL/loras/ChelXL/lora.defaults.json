@@ -1,1 +1,30 @@
-{}
+{
+  "schema_version": 1,
+  "id": "lora_37faa7cb-a25a-4b78-b920-95e57b750296",
+  "display_name": "ChelXL",
+  "description": "SDXL character LoRA for Chel.",
+  "family": "sdxl",
+  "adapter_type": "lora",
+  "source_url": "https://civitai.red/models/327553/chel-nsfwsfw-sdxl-lora-pony?modelVersionId=367106",
+  "source_model_id": "327553",
+  "source_version_id": "367106",
+  "weights": "ChelXL.safetensors",
+  "sha256": null,
+  "notes_file": "ChelXL_Notes.md",
+  "preview_image": null,
+  "compatibility": {
+    "trained_on": "stablediffusionapi/pony-diffusion-v6-xl",
+    "verified_checkpoint_ids": [],
+    "notes": "Training model name is recorded in the weight file metadata. Checkpoint compatibility has not been tested."
+  },
+  "settings": {
+    "strength": 0.8,
+    "trigger_words": [
+      "cheldorado"
+    ],
+    "positive_prefix": "1girl, solo, long hair, breasts, smile, bangs, black hair, navel, bare shoulders, jewelry, earrings, midriff, dark skin, blunt bangs, bracelet, dark-skinned female, lips, crop top, strapless, makeup, pelvic curtain, tube top, loincloth",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {}
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "settings": {
+    "guidance_scale": 3.0,
+    "num_inference_steps": 30,
+    "loras": [
+      {
+        "id": "lora_REPLACE_WITH_GENERATED_UUID",
+        "enabled": false,
+        "strength": 0.8
+      }
+    ]
+  }
+}

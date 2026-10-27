@@ -1,1 +1,34 @@
-{}
+{
+  "schema_version": 1,
+  "id": "lora_eda649cb-4264-4c7c-af44-7d2c0970e1fd",
+  "display_name": "WAN Assertive Cowgirl High Noise",
+  "description": "Local WAN adapter catalog entry: WAN Assertive Cowgirl High Noise.",
+  "family": "wan",
+  "adapter_type": "lora",
+  "source_url": "https://civitai.red/models/1566648/wan-i2v-22-and-21-assertive-cowgirl?modelVersionId=2129122",
+  "source_model_id": "1566648",
+  "source_version_id": "2129122",
+  "weights": "01_Wan22-I2V-HIGH-Hip_Slammin_Assertive_Cowgirl.safetensors",
+  "sha256": null,
+  "notes_file": "01_Assertive_Cowgirl_Notes.md",
+  "preview_image": null,
+  "compatibility": {
+    "model_variant": "wan_2_2_i2v_a14b",
+    "expert_target": "high_noise",
+    "trained_on": "wan2.2_i2v_high_noise_14B_fp16.safetensors",
+    "verified_checkpoint_ids": [],
+    "notes": "Local notes explicitly identify WAN 2.2 I2V A14B and recommend strength 0.7-1.0, normally 1.0, and high-noise guidance near 6. The exact training model filename identifies the high-noise expert even though the generic modelspec.architecture header says wan2.1/lora. Only the documented base trigger is extracted; other prompt examples remain in notes_file. Checkpoint compatibility has not been tested. Metadata was populated from local notes and weight headers."
+  },
+  "settings": {
+    "strength": 1.0,
+    "trigger_words": [
+      "a woman is straddling a man and eagerly having sex with him. she is squatting."
+    ],
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {
+      "guidance_scale": 6.0
+    }
+  }
+}

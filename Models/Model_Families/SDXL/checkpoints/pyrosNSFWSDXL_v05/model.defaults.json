@@ -1,1 +1,42 @@
-{}
+{
+  "schema_version": 1,
+  "id": "model_63590fc5-d0a0-4eed-8da1-223f9075d1c2",
+  "display_name": "Pyros SDXL v0.5",
+  "description": "SDXL checkpoint: Pyros v0.5.",
+  "family": "sdxl",
+  "workflow": "sdxl",
+  "source_url": "https://civitai.red/models/133808/pyros-nsfw-sdxl?modelVersionId=324958",
+  "source_model_id": "133808",
+  "source_version_id": "324958",
+  "weights": "pyrosNSFWSDXL_v05.safetensors",
+  "sha256": null,
+  "base_model_id": "stabilityai/stable-diffusion-xl-base-1.0",
+  "notes_file": "pyrosNSFWSDXL_Notes",
+  "preview_image": null,
+  "supported_modes": [
+    "txt2img"
+  ],
+  "requirements": {
+    "dimension_multiple": 8,
+    "scheduler_config": {}
+  },
+  "settings": {
+    "prompt": "",
+    "negative_prompt": "",
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "trigger_words": [],
+    "width": 832,
+    "height": 1216,
+    "num_images_per_prompt": 1,
+    "guidance_scale": 5.0,
+    "num_inference_steps": 50,
+    "seed": null,
+    "clip_skip": null,
+    "sampling": {
+      "sampler": "model_default",
+      "noise_schedule": "default"
+    },
+    "loras": []
+  }
+}

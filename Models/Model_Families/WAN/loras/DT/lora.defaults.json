@@ -1,1 +1,30 @@
-{}
+{
+  "schema_version": 1,
+  "id": "lora_dd83e380-f67d-46ee-b2cb-82cd0d1c2a13",
+  "display_name": "WAN DT",
+  "description": "Local WAN adapter catalog entry: WAN DT.",
+  "family": "wan",
+  "adapter_type": "lora",
+  "source_url": "https://civitai.red/models/1874811/ultimate-deepthroat-i2v-wan22-video-lora-k3nk?modelVersionId=2325788",
+  "source_model_id": "1874811",
+  "source_version_id": "2325788",
+  "weights": "DT.safetensors",
+  "sha256": null,
+  "notes_file": "DT_Notes.md",
+  "preview_image": null,
+  "compatibility": {
+    "model_variant": "wan_2_2_i2v_a14b",
+    "expert_target": null,
+    "trained_on": null,
+    "verified_checkpoint_ids": [],
+    "notes": "Local source naming identifies WAN 2.2 I2V, and 5120-wide adapter tensors support the 14B layout. Notes discuss both models and a low-noise training dataset, but do not establish which expert this DT.safetensors file targets; expert_target is null. Strength 0.8 is the existing notebook fallback. The file includes diff_b bias-delta entries; loader support needs validation. Example prompts and the referenced four-step wrapper workflow remain in notes_file rather than being turned into default generation settings. Checkpoint compatibility has not been tested. Metadata was populated from local notes and weight headers."
+  },
+  "settings": {
+    "strength": 0.8,
+    "trigger_words": [],
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {}
+  }
+}

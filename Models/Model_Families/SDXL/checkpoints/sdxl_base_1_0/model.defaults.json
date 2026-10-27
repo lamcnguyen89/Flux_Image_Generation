@@ -1,1 +1,42 @@
-{}
+{
+  "schema_version": 1,
+  "id": "model_a4278bb0-94f4-4960-ada0-39ca89cec194",
+  "display_name": "Stable Diffusion XL Base 1.0",
+  "description": "Official SDXL 1.0 base model loaded from its pretrained repository.",
+  "family": "sdxl",
+  "workflow": "sdxl",
+  "source_url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0",
+  "source_model_id": "stabilityai/stable-diffusion-xl-base-1.0",
+  "source_version_id": null,
+  "weights": null,
+  "sha256": null,
+  "base_model_id": "stabilityai/stable-diffusion-xl-base-1.0",
+  "notes_file": null,
+  "preview_image": null,
+  "supported_modes": [
+    "txt2img"
+  ],
+  "requirements": {
+    "dimension_multiple": 8,
+    "scheduler_config": {}
+  },
+  "settings": {
+    "prompt": "",
+    "negative_prompt": "",
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "trigger_words": [],
+    "width": 1024,
+    "height": 1024,
+    "num_images_per_prompt": 1,
+    "guidance_scale": 5.0,
+    "num_inference_steps": 50,
+    "seed": null,
+    "clip_skip": null,
+    "sampling": {
+      "sampler": "model_default",
+      "noise_schedule": "default"
+    },
+    "loras": []
+  }
+}

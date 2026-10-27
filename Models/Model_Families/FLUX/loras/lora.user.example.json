@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "settings": {
+    "strength": 0.65,
+    "trigger_words": [
+      "example_style",
+      "example_variant"
+    ],
+    "recommended_generation": {
+      "num_inference_steps": 35
+    }
+  }
+}

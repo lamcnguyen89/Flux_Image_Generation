@@ -1,1 +1,42 @@
-{}
+{
+  "schema_version": 1,
+  "id": "model_86b44c16-e58f-4fcf-845f-b0d04d21b888",
+  "display_name": "Pony Diffusion V6 XL",
+  "description": "SDXL checkpoint: Pony Diffusion V6 XL.",
+  "family": "sdxl",
+  "workflow": "sdxl",
+  "source_url": null,
+  "source_model_id": null,
+  "source_version_id": null,
+  "weights": "ponyDiffusionV6XL_v6StartWithThisOne.safetensors",
+  "sha256": null,
+  "base_model_id": "stabilityai/stable-diffusion-xl-base-1.0",
+  "notes_file": "ponydiffusionv6XL_Notes.md",
+  "preview_image": null,
+  "supported_modes": [
+    "txt2img"
+  ],
+  "requirements": {
+    "dimension_multiple": 8,
+    "scheduler_config": {}
+  },
+  "settings": {
+    "prompt": "",
+    "negative_prompt": "",
+    "positive_prefix": "score_9, score_8_up, score_7_up, score_6_up, score_5_up, score_4_up,",
+    "positive_suffix": "",
+    "trigger_words": [],
+    "width": 1024,
+    "height": 1024,
+    "num_images_per_prompt": 1,
+    "guidance_scale": 5.0,
+    "num_inference_steps": 25,
+    "seed": null,
+    "clip_skip": null,
+    "sampling": {
+      "sampler": "euler_ancestral",
+      "noise_schedule": "default"
+    },
+    "loras": []
+  }
+}

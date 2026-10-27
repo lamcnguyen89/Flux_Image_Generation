@@ -1,1 +1,30 @@
-{}
+{
+  "schema_version": 1,
+  "id": "lora_f13bd20e-7488-4d66-8579-ec65211202ce",
+  "display_name": "WAN 2.2 I2V Missionary High Noise v1.0",
+  "description": "Local WAN adapter catalog entry: WAN 2.2 I2V Missionary High Noise v1.0.",
+  "family": "wan",
+  "adapter_type": "lora",
+  "source_url": "https://civitai.red/models/1331682/wan-2221-pov-missionary?modelVersionId=2098405",
+  "source_model_id": "1331682",
+  "source_version_id": "2098405",
+  "weights": "06_wan2.2_i2v_highnoise_pov_missionary_v1.0.safetensors",
+  "sha256": null,
+  "notes_file": "Missionary_Notes.md",
+  "preview_image": null,
+  "compatibility": {
+    "model_variant": "wan_2_2_i2v_a14b",
+    "expert_target": "high_noise",
+    "trained_on": null,
+    "verified_checkpoint_ids": [],
+    "notes": "The local filename explicitly identifies WAN 2.2 I2V high noise and the notes discuss paired high/low-noise adapters. Only the high-noise file is present here. No exact training checkpoint metadata is embedded. Strength 0.8 is the notebook fallback, not a creator recommendation. Narrative prompt advice remains in notes_file; no mandatory activation keyword is inferred. Checkpoint compatibility has not been tested. Metadata was populated from local notes and weight headers."
+  },
+  "settings": {
+    "strength": 0.8,
+    "trigger_words": [],
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {}
+  }
+}

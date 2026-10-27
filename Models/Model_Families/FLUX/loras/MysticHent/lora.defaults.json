@@ -1,1 +1,31 @@
-{}
+{
+  "schema_version": 1,
+  "id": "lora_4289b6b4-fa39-4b47-8dbf-1c995888a7fb",
+  "display_name": "Mystic Hentai v1",
+  "description": "Local adapter catalog entry: Mystic Hentai v1.",
+  "family": "flux",
+  "adapter_type": "lora",
+  "source_url": "https://civitai.red/models/1671936/nsfw-flux-mystic-hentai?modelVersionId=1892397",
+  "source_model_id": "1671936",
+  "source_version_id": "1892397",
+  "weights": "MysticHentai-v1.safetensors",
+  "sha256": null,
+  "notes_file": "Mystic_Hent_Notes.md",
+  "preview_image": null,
+  "compatibility": {
+    "model_variant": "flux_1_dev",
+    "trained_on": "flux1-dev2pro.safetensors",
+    "verified_checkpoint_ids": [],
+    "notes": "Weight metadata declares a FLUX.1-dev LoRA. trained_on preserves the training model name or local filename from weight metadata; it is not a verified repository URL. Checkpoint compatibility has not been tested. Live source metadata could not be retrieved: the linked CivitAI version pages were unavailable through the browsing tools; values here come from local notes and weight headers. Local notes recommend DPMPP_2M / BETA and CFG 4. Those values remain in notes_file: no compatible flow-matching sampler mapping or intended guidance control was verified, so they are not assigned to native generation fields."
+  },
+  "settings": {
+    "strength": 1.0,
+    "trigger_words": [],
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {
+      "num_inference_steps": 35
+    }
+  }
+}

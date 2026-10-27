@@ -1,1 +1,42 @@
-{}
+{
+  "schema_version": 1,
+  "id": "model_bed8d383-fd60-49c0-9bc6-92a027b70821",
+  "display_name": "Juggernaut XL Ragnarok",
+  "description": "SDXL checkpoint: Juggernaut XL Ragnarok.",
+  "family": "sdxl",
+  "workflow": "sdxl",
+  "source_url": "https://civitai.red/models/133005/juggernaut-xl?modelVersionId=1759168",
+  "source_model_id": "133005",
+  "source_version_id": "1759168",
+  "weights": "juggernautXL_ragnarok.safetensors",
+  "sha256": null,
+  "base_model_id": "stabilityai/stable-diffusion-xl-base-1.0",
+  "notes_file": "juggernautXL_notes.md",
+  "preview_image": null,
+  "supported_modes": [
+    "txt2img"
+  ],
+  "requirements": {
+    "dimension_multiple": 8,
+    "scheduler_config": {}
+  },
+  "settings": {
+    "prompt": "",
+    "negative_prompt": "",
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "trigger_words": [],
+    "width": 832,
+    "height": 1216,
+    "num_images_per_prompt": 1,
+    "guidance_scale": 4.5,
+    "num_inference_steps": 35,
+    "seed": null,
+    "clip_skip": null,
+    "sampling": {
+      "sampler": "dpmpp_2m_sde",
+      "noise_schedule": "default"
+    },
+    "loras": []
+  }
+}

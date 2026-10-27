@@ -1,1 +1,35 @@
-{}
+{
+  "schema_version": 1,
+  "id": "lora_509422a9-a7f3-40c2-8545-bd45b465c1b2",
+  "display_name": "NSFW Unlocked v2",
+  "description": "Local adapter catalog entry: NSFW Unlocked v2 (target unconfirmed).",
+  "family": "flux",
+  "adapter_type": "lora",
+  "source_url": "https://civitai.red/models/2063193/nsfw-unlocked-lora-flux-flux2-klein-zimage-krea2?modelVersionId=3422539",
+  "source_model_id": "2063193",
+  "source_version_id": "3422539",
+  "weights": "kera2_Unlocked_V2.safetensors",
+  "sha256": null,
+  "notes_file": "kera_2_Unlocked.md",
+  "preview_image": null,
+  "compatibility": {
+    "model_variant": "flux_1_dev",
+    "trained_on": null,
+    "verified_checkpoint_ids": [],
+    "notes": "Original weight metadata: filename/source naming refers to Krea 2, the header declares no architecture, and tensor keys use lora_unet_blocks_*_attn_* with 6144-wide projections. Catalog classification is flux / flux_1_dev by user override. Checkpoint compatibility has not been tested. Live source metadata could not be retrieved: the linked CivitAI version pages were unavailable through the browsing tools; values here come from local notes and weight headers. The strength preset 0.8 falls within the documented 0.5-0.9 range. The 20-step recommendation records the lower end of the documented 20+ steps. Sampler Euler and CFG 3.5 remain in notes_file; their mapping to native guidance/scheduler controls has not been verified."
+  },
+  "settings": {
+    "strength": 0.8,
+    "trigger_words": [
+      "nude",
+      "big round boobs",
+      "topless"
+    ],
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {
+      "num_inference_steps": 20
+    }
+  }
+}
