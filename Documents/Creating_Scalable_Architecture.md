@@ -1,3 +1,7 @@
+This document records earlier architecture discussions. For the current folder
+structure, see the [model family layout](../Models/Model_Families/README.md).
+SDXL-based models are now consolidated under `Models/Model_Families/SDXL/`.
+
 ## So I've changed the folder structure so that the main model  families for specialize image and video generation have their own folders. They are in the Models/Model_Families folder. In each folder... For example, the folder BigLust, there is an image generation notebook with its corresponding checkpoint and loras folder. The reason I have to set this up like this is because each model family will have its unique settings, default prompts, splash images, etc... Can you update each jupyter notebook in each of these subfolders in the Model_Families folder to have updated filepaths and to use the corresponding model, checkpoints and Loras? Some folders have multiple checkpoints or multiple LoRAS. Just choose one as a place holder if they are available. There might be no checkpoint or Lora in other model family folders.
 
 Yes—**a JSON file per LoRA, plus a JSON file per model family, fits your project well.** I would also allow checkpoint-specific JSON files, since two checkpoints within the same family can require different settings.
