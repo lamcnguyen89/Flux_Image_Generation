@@ -89,8 +89,9 @@ repository identifier is preserved as metadata, not resolved as a local path.
 
 Family and workflow names are not restricted to today's three implementations.
 New metadata and settings are retained. Validation covers shared setting types;
-workflow-specific numeric ranges, dimensions, scheduler rules, input requirements,
-and actual LoRA compatibility still need validation when generation is implemented.
+workflow-specific numeric ranges, dimensions, scheduler rules, and input requirements
+are checked by the generation backends. Actual LoRA tensor compatibility is
+checked by the model loader.
 An empty verified-checkpoint list or unknown WAN expert target remains valid
 catalog metadata and does not establish loading compatibility.
 
@@ -100,8 +101,8 @@ catalog metadata and does not establish loading compatibility.
 Workflow defaults → Asset defaults → Saved user overrides → Request overrides
 ```
 
-The optional workflow and request layers are supplied by callers; the current
-workflow placeholders provide no defaults. The resolver merges only the
+The optional workflow and request layers are supplied by callers; generation
+preparation provides the selected workflow's defaults. The resolver merges only the
 `settings` objects, never the manifest metadata:
 
 - Objects merge recursively by key. Overriding `sampling.sampler` preserves

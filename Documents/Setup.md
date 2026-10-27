@@ -1,8 +1,9 @@
 # Application environment setup
 
 The application will use one project-local `.venv` for its SDXL, FLUX, and WAN
-workflows. The notebooks remain independent experiments. All workflow modules in
-`src/image_generator/workflows/` are TODO placeholders.
+workflows. The notebooks remain independent experiments. All three families have
+reusable backends and command-line runners: [SDXL](SDXL_Workflow.md),
+[FLUX](FLUX_Workflow.md), and [WAN](WAN_Workflow.md).
 
 ## Current status
 

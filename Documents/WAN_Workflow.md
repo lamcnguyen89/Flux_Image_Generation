@@ -1,0 +1,130 @@
+# WAN 2.2 I2V-A14B backend
+
+The WAN workflow supports `img2vid` for `wan_2_2_i2v_a14b`. It requires a local
+starting image and a complete pretrained or local Diffusers pipeline containing
+both high-noise and low-noise experts. Text-to-video and other WAN variants need
+separate implementations or extensions.
+
+## Runner
+
+```bash
+.venv/bin/python scripts/generate_wan.py \
+  --input-image Images/input.png \
+  --prompt "A gentle breeze moves across the lake" \
+  --frames 49 --seed 42 --no-loras
+```
+
+The default catalog model is `model_95f8fb96-fc3b-4cf3-8b6f-e95e8cb5209b`.
+`--model-id` and `--root` select other catalog entries. Input/output path options
+resolve relative to your working directory; default catalog/cache/output locations
+are anchored to the project. The script works by absolute path from another
+directory.
+
+Add `--dry-run` to print a validated request without importing model or image
+libraries, downloading weights, or writing outputs. Dry runs check that the input
+path exists; image decoding, encoder availability, and loaded-model alignment are
+checked during actual execution before inference.
+
+Options include `--width`, `--height`, `--frames`, `--fps`, `--steps`,
+`--guidance`, `--guidance-2`, `--negative-prompt`, `--seed`, and `--num-videos`.
+The runner defaults to one video. `--seed random` overrides a saved fixed seed.
+Other omitted settings preserve resolved model/user values.
+
+Both guidance scales must enable CFG together (both > 1) or disable it together
+(both <= 1). Frame counts must be `4*n + 1`, at least 5, and satisfy the manifest's
+additional frame-count requirements. FPS must be positive; it changes playback
+rate, not the number of generated frames. Only the default model scheduler/noise
+schedule is implemented. Mandatory scheduler settings are reapplied per variation.
+
+`--preserve-aspect-ratio` fits the source aspect ratio to the requested pixel area,
+rounding dimensions to the loaded VAE/transformer's spatial alignment.
+`--no-preserve-aspect-ratio` center-crops to the exact requested size. Both paths
+honor the manifest's dimension constraints. The backend applies EXIF orientation
+and converts input images to RGB. `--vae-tiling` / `--no-vae-tiling` control VAE
+tiling; the shipped defaults enable it.
+
+## Model loading and expert adapters
+
+`weights: null` loads `base_model_id`. Local `weights` must point to a complete
+Diffusers directory with `model_index.json` and declare `weights_component:
+pipeline`. A single transformer checkpoint is rejected. Local directories are
+loaded offline. The runtime verifies both experts, a valid expert boundary, and
+the loaded model's spatial/temporal alignment. The VAE loads in float32 while the
+other components use the selected precision, bfloat16 by default on CUDA.
+
+Enabled saved model links are used unless `--no-loras` is specified. Repeating
+`--lora ID[:STRENGTH]` selects multiple adapters and replaces the saved list.
+Strength precedence is request → checkpoint link → adapter user/default setting.
+
+Every enabled WAN LoRA must declare compatible `model_variant` metadata and an
+explicit `expert_target` of `high_noise` or `low_noise`. Unknown targets/variants
+are rejected before model loading; disabled adapters are ignored. Resolve unknown
+metadata from verified evidence before enabling those entries. No weight files
+or compatibility metadata are changed by the backend.
+
+Adapters load into `transformer` or `transformer_2` according to that metadata.
+Each expert activates only its own adapter names and strengths. Previous adapters
+are unloaded between requests, and failed loading/inference discards the pipeline.
+Selecting an adapter does not apply its generation recommendations or prompt
+additions. Trigger insertion is explicit through `--include-trigger-words`.
+
+## Outputs and memory ownership
+
+Outputs go under `Videos/` or `--output-dir`:
+
+- `wan-seed-...mp4`: encoded video.
+- Matching `.input.png`: the exact resized/cropped conditioning image.
+- Matching `.json`: settings, final prompts, model/variant, expert adapters and
+  strengths, actual seed, original input path/SHA-256, oriented source size,
+  conditioning size, actual pipeline arguments, scheduler, boundary, frame count,
+  duration, versions, precision, device, and timing.
+
+Variations are generated and saved sequentially. Decoded frames are released
+before the next variation is generated. Unique names preserve previous runs.
+A failed export/metadata write removes its incomplete MP4/PNG/JSON set;
+already-completed earlier variations remain available.
+
+FFmpeg availability is checked before loading weights. Encoding uses the installed
+Diffusers/imageio FFmpeg path with `macro_block_size=1`, avoiding extra resizing
+after model-aligned dimensions have been selected.
+
+## Runtime and Python API
+
+The runner shares SDXL/FLUX's `.env` token/cache behavior: `HUGGINGFACE_TOKEN` or
+`HF_TOKEN`, `<CACHE_LOCATION>/hub` or `Models/hub`, and explicit `--cache-dir`.
+`--local-files-only` disables repository downloads. `--device cpu` explicitly
+selects CPU execution and defaults to float32. GPU defaults are CUDA 0 and BF16;
+the runtime checks device access and BF16 support. There is no automatic CPU
+offload or quantization. API callers pass cache/token options explicitly.
+
+```python
+from image_generator.catalog import discover_catalog
+from image_generator.generation import prepare_generation, run_generation
+
+request = prepare_generation(
+    discover_catalog("Models/Model_Families"),
+    "model_95f8fb96-fc3b-4cf3-8b6f-e95e8cb5209b",
+    inputs={"input_image": "Images/input.png"},
+    overrides={"prompt": "A gentle breeze moves across the lake", "num_frames": 49,
+               "num_videos_per_prompt": 2, "seed": 42, "loras": []},
+)
+outputs = run_generation(request, "Videos", cache_dir="Models/hub")
+print(outputs[0].video_path, outputs[0].conditioning_path)
+```
+
+Preparation infers `img2vid` from the model's declared first mode. A retained
+`WanWorkflow` instance can be reused for serialized requests. Use
+`generate_batches(request)` and save each returned batch with `save_batch()`;
+release the batch before asking for the next variation. `generate(request)` is
+convenient for one video and rejects multi-video requests. Always close a retained
+workflow in `finally`. Flask and the background worker are separate application
+layers and remain unchanged.
+
+## Verification
+
+`python -m unittest discover -s tests -p 'test_transformer_workflows.py' -v`
+covers validation, expert targeting, FP32 VAE loading, preprocessing, streaming,
+output cleanup, and runners with mocked pipelines. Real FFmpeg encoding/decoding
+has also been checked with synthetic frames. Full WAN inference and adapter
+compatibility require verification on the GPU host; CUDA is inaccessible in this
+implementation environment.
