@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .initialization import initialize_catalog
 from .settings import resolve_settings
 from .validation import (
     AssetKind,
@@ -86,17 +87,22 @@ class Catalog:
         return self.loras[asset_id]
 
 
-def discover_catalog(root: str | Path) -> Catalog:
+def discover_catalog(root: str | Path, *, initialize_missing: bool = True) -> Catalog:
     """Index <family>/{checkpoints,loras}/<asset> manifests by permanent ID.
 
-    Only exact defaults filenames in asset subfolders register entries; example
-    files are ignored. A missing user file means no overrides and is not created.
+    Missing manifests are initialized from family examples before discovery.
+    Set initialize_missing=False for strictly read-only inspection, where a
+    missing user file means no overrides. Only exact defaults filenames register
+    entries; example files themselves are ignored.
     Invalid files and duplicate IDs produce one aggregated exception, never a
     partially valid catalog or silent fallback to defaults.
     """
     root = Path(root).expanduser().resolve()
     if not root.is_dir():
         raise CatalogValidationError([ValidationIssue(root, "$", "catalog root must be an existing directory")])
+
+    if initialize_missing:
+        initialize_catalog(root)
 
     catalog = Catalog(root, models={}, loras={})
     issues: list[ValidationIssue] = []

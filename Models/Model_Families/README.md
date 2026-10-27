@@ -279,16 +279,22 @@ override the LoRA defaults. A checkpoint-specific saved strength then takes
 precedence, followed by the current generation request. User files do not need
 to repeat metadata or unchanged settings.
 
-Future discovery should look for asset-subfolder `model.defaults.json` and
+Catalog discovery looks for asset-subfolder `model.defaults.json` and
 `lora.defaults.json` files and exclude `*.example.json`. Examples do not register
-assets or change their settings.
+assets or change existing settings. Missing manifest pairs are initialized on
+catalog load; see [automatic initialization](../../Documents/Catalog.md#automatic-manifest-initialization).
 
 ## Adding assets
 
 Create a folder beneath the appropriate family's `checkpoints/` or `loras/`.
-Keep that asset's weights, notes, and optional previews together, and add the
-matching `model.defaults.json` / `model.user.json` or
-`lora.defaults.json` / `lora.user.json` pair. For SDXL and FLUX checkpoints, use
+Keep that asset's weights, notes, and optional previews together. On the next
+catalog load, missing `model.defaults.json` / `model.user.json` or
+`lora.defaults.json` / `lora.user.json` files are initialized from family examples,
+with new IDs, detected weight paths, and empty user overrides. Existing files
+are preserved. Supply the weight path explicitly through `initialize_asset()`
+when a folder has multiple candidates. Review the generated metadata and
+settings; compatibility, WAN expert targets, and actual trigger words require
+documented values. You can also prepare manifests manually. For SDXL and FLUX checkpoints, use
 the appropriate family's example as a field template, assign a new permanent ID,
 and start the user file with an empty `settings` object. For SDXL LoRAs, use the
 LoRA example pair and populate documented fields, assigning a new permanent LoRA

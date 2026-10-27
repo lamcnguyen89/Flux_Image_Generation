@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from image_generator.catalog import CatalogAsset
+from .ui import UIDefinition
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,15 @@ class SavedVideo:
 
 class Workflow(ABC):
     defaults: dict[str, Any]
+    ui_modes: tuple[str, ...] = ()
+
+    def get_ui_definition(self, model: CatalogAsset, mode: str) -> UIDefinition:
+        """Describe controls without loading weights; current values are separate."""
+        raise ValueError("This workflow does not provide a generation form")
+
+    def validate_form_settings(self, model: CatalogAsset, mode: str, settings: dict) -> None:
+        """Validate form values only; full validate() still checks assets before jobs."""
+        self.get_ui_definition(model, mode).validate_settings(settings)
 
     @abstractmethod
     def validate(self, request: GenerationRequest) -> None:

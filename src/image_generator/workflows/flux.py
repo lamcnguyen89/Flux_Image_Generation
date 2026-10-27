@@ -10,6 +10,7 @@ from .common import (
 
 
 class FluxWorkflow(TransformerWorkflow):
+    ui_modes = ("txt2img",)
     defaults = {
         "prompt": "", "negative_prompt": "", "positive_prefix": "", "positive_suffix": "",
         "trigger_words": [], "width": 1024, "height": 1024, "num_images_per_prompt": 1,
@@ -44,6 +45,21 @@ class FluxWorkflow(TransformerWorkflow):
             raise ValueError(f"max_sequence_length must be between 1 and {limit}")
         if not _nonnegative_number(settings["true_cfg_scale"]) or settings["true_cfg_scale"] < 1:
             raise ValueError("true_cfg_scale must be a finite number >= 1")
+
+    def get_ui_definition(self, model, mode):
+        from .ui import UIField, common_fields, definition, sampling_fields
+
+        limit = model.defaults["requirements"].get("max_sequence_length_limit", 512)
+        if type(limit) is not int or not 1 <= limit <= 512:
+            raise ValueError("requirements.max_sequence_length_limit must be between 1 and 512")
+        return definition(model, mode, workflow="flux", supported_modes=self.ui_modes, variant="flux_1_dev", fields=(
+            *common_fields(model),
+            *sampling_fields(model, ("flow_match_euler", "model_default")),
+            UIField("true_cfg_scale", "True CFG scale", "number", "Sampling", minimum=1,
+                    help="Negative prompting takes effect above 1, with a nonempty negative prompt."),
+            UIField("max_sequence_length", "Maximum sequence length", "integer", "Advanced", minimum=1,
+                    maximum=limit, step=1, help="Maximum prompt token sequence length."),
+        ))
 
     def _build_pipeline(self, request):
         model = request.model

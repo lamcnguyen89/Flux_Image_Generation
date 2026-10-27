@@ -1,7 +1,8 @@
 # Catalog discovery and settings resolution
 
 The catalog reads model and LoRA configuration without importing Torch,
-Diffusers, or Flask, opening weights, downloading models, or writing settings.
+Diffusers, or Flask, opening weights, or downloading models. Loading initializes
+missing JSON manifests; existing files and saved settings are preserved.
 It is the data layer for the planned web interface and generation workflows.
 
 ## Inspect the catalog
@@ -62,17 +63,81 @@ local asset paths. Treat the source manifest dictionaries as read-only;
 
 ## Discovery and validation
 
-Discovery reads only these paths beneath the supplied root:
+Discovery registers these paths beneath the supplied root:
 
 ```text
 <family>/checkpoints/<asset>/model.defaults.json
 <family>/loras/<asset>/lora.defaults.json
 ```
 
-Example files and unrelated JSON do not register assets. A corresponding
-`model.user.json` or `lora.user.json` is optional: absence means no overrides,
-and no file is created. Malformed, unreadable, or unsupported-version user
-files are errors, rather than a fallback to defaults.
+Before registration, discovery initializes missing defaults/user files in asset
+folders. Example files and unrelated JSON do not register assets. Malformed,
+unreadable, or unsupported-version existing files are errors and are never
+replaced. Use `discover_catalog(root, initialize_missing=False)` for strictly
+read-only inspection; in that mode, absent user files mean no overrides in memory.
+
+## Automatic manifest initialization
+
+Each immediate folder under `<family>/checkpoints/` or `<family>/loras/` is an
+asset candidate when it contains a defaults/user manifest, a `.safetensors` file,
+or a Diffusers pipeline with `model_index.json`. Empty, hidden, and unrelated
+folders are ignored. Weights stored directly in `checkpoints/` or `loras/` must
+first be placed inside an asset subfolder.
+
+For missing defaults, initialization reads the family directory's adjacent
+`model.defaults.example.json` or `lora.defaults.example.json`. It assigns a new
+permanent UUID, uses the asset folder name for display, and detects a single
+local `.safetensors` file. WAN model templates instead detect a complete pipeline
+in the asset folder or one immediate child; without local weights, WAN's
+pretrained template repository is retained. Multiple candidate files/pipelines,
+missing templates, and incomplete WAN checkpoints produce actionable errors.
+
+Numerical settings and pipeline requirements come from the template and need
+review for the actual checkpoint. Illustrative prompts, trigger words, links,
+source details, LoRA recommendations, and compatibility claims are cleared.
+In particular, a new WAN LoRA has an unknown expert target until explicitly
+configured. Family placement alone does not prove compatibility.
+
+Missing user files are initialized as `{"schema_version": 1, "settings": {}}`.
+The user example supplies the schema version when available; its illustrative
+overrides and placeholder adapter links are not copied. Existing defaults need
+no templates or local weights to receive a missing empty user file.
+
+Files are published atomically without overwriting existing entries, including
+when concurrent requests initialize the same asset. Repeated loads preserve IDs
+and existing bytes. If a write fails, a later load can retry missing files.
+Deleting a defaults file discards its identity; recreating it assigns a new UUID.
+
+The same helpers are available for a future upload handler after it saves the
+weights into the appropriate asset subfolder:
+
+```python
+from image_generator.catalog import initialize_asset, initialize_catalog
+
+created_paths = initialize_asset(
+    "Models/Model_Families/FLUX/loras/new_style",
+    weights="uploaded.safetensors",  # Select explicitly if multiple files exist.
+    metadata={
+        "display_name": "New style",
+        "compatibility": {
+            "model_variant": "flux_1_dev",
+            "verified_checkpoint_ids": [],
+        },
+    },
+)
+```
+
+`weights` and `metadata` affect only newly created defaults; the helper never
+edits existing files. Metadata replaces template fields at the top level, so
+provide the complete value when supplying `settings` or `compatibility`.
+For an explicitly configured pretrained model, pass
+`metadata={"weights": None, "base_model_id": "organization/model"}`.
+`initialize_catalog(root)` initializes all recognized assets and returns paths
+created, while `discover_catalog(root)` does this automatically and then returns
+the validated catalog. Both web pages and generation/inspection CLIs use this path;
+a generation `--dry-run` can create missing catalog manifests but no outputs.
+
+## Validation
 
 Validation checks schema version 1, required identity/loading fields, shared
 setting types, duplicate IDs across the whole catalog, and model links to
@@ -83,7 +148,9 @@ supported modes, or weight paths.
 
 `weights`, `notes_file`, and `preview_image` paths resolve relative to the asset
 manifest. Absolute paths remain absolute. Discovery does not check that local
-weights exist, hash their contents, or inspect the Hugging Face cache.
+weights referenced by existing manifests exist, hash their contents, or inspect
+the Hugging Face cache. Initialization only inspects paths to select weights for
+new manifests; it never reads weight contents.
 `weights: null` is valid for models with a nonempty `base_model_id`; that remote
 repository identifier is preserved as metadata, not resolved as a local path.
 

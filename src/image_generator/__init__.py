@@ -2,12 +2,13 @@
 
 
 def create_app(config=None):
-    """Create the read-only web app; catalog-only imports do not need Flask."""
+    """Create the catalog and form-preview app; catalog-only imports need no Flask."""
     from pathlib import Path
 
     from flask import Flask
 
     from .web.web import catalog_bp
+    from .web.generation_routes import generation_bp
 
     app = Flask(__name__, static_folder=None)
     app.config.from_mapping(
@@ -17,4 +18,5 @@ def create_app(config=None):
     if config is not None:
         app.config.update(config)
     app.register_blueprint(catalog_bp)
+    app.register_blueprint(generation_bp)
     return app

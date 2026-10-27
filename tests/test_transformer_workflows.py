@@ -371,7 +371,7 @@ class TransformerTests(unittest.TestCase):
         self.flux_loader.assert_not_called()
         self.wan_loader.assert_not_called()
 
-    def test_cli_dry_runs_without_site_packages_and_does_not_write_files(self):
+    def test_cli_dry_runs_initialize_manifests_without_site_packages_or_generation_outputs(self):
         before = {path: path.read_bytes() for path in self.root.rglob("*") if path.is_file()}
         for family in ("flux", "wan"):
             args = [sys.executable, "-S", str(ROOT / f"scripts/generate_{family}.py"), "--root", str(self.root),
@@ -383,7 +383,11 @@ class TransformerTests(unittest.TestCase):
             data = json.loads(result.stdout)
             self.assertEqual(data["model"]["workflow"], family)
             self.assertIsNone(data["settings"]["seed"])
-        self.assertEqual(before, {path: path.read_bytes() for path in self.root.rglob("*") if path.is_file()})
+        after = {path: path.read_bytes() for path in self.root.rglob("*") if path.is_file()}
+        self.assertEqual(before, {path: after[path] for path in before})
+        for path in after.keys() - before.keys():
+            self.assertIn(path.name, {"model.user.json", "lora.user.json"})
+            self.assertEqual(json.loads(after[path]), {"schema_version": 1, "settings": {}})
 
     def test_cli_generates_both_media_types(self):
         for family in ("flux", "wan"):

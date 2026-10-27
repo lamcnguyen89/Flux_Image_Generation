@@ -44,6 +44,8 @@ footer { color: var(--muted); border-top: 1px solid var(--border); padding-block
 .description { font-size: .9rem; margin-bottom: 1.4rem; overflow-wrap: anywhere; }
 .action-link { font-size: .9rem; font-weight: 650; text-decoration: none; }
 .model-card .action-link { margin-top: auto; align-self: flex-start; }
+.model-actions { display: flex; flex-wrap: wrap; gap: .6rem 1.2rem; margin-top: auto; }
+.model-actions .action-link { margin-top: 0; }
 .action-link span { margin-left: .3rem; }
 .badges { display: flex; flex-wrap: wrap; gap: .5rem; }
 .badge { display: inline-block; color: var(--muted); font-size: .75rem; padding: .2rem .6rem; border: 1px solid var(--border); border-radius: 5px; }

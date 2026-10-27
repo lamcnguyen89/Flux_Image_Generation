@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "settings": {
+    "num_frames": 49,
+    "fps": 12,
+    "loras": [
+      {
+        "id": "fixture-wan-high",
+        "enabled": true,
+        "strength": 0.7
+      },
+      {
+        "id": "fixture-wan-low",
+        "enabled": false,
+        "strength": 0.4
+      }
+    ]
+  }
+}

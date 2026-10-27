@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "settings": {
+    "width": 768,
+    "seed": 42,
+    "sampling": {
+      "sampler": "euler_ancestral"
+    },
+    "loras": [
+      {
+        "id": "fixture-sdxl-style",
+        "enabled": true,
+        "strength": 0.65
+      }
+    ]
+  }
+}

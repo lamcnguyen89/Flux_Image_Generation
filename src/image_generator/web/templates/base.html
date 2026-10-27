@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Model catalog{% endblock %} · Image Generator</title>
   <link rel="stylesheet" href="{{ url_for('catalog.static', filename='catalog.css') }}">
+  {% block head %}{% endblock %}
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -14,5 +15,6 @@
   </header>
   <main id="main" tabindex="-1">{% block content %}{% endblock %}</main>
   <footer>Image Generator · Model catalog</footer>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

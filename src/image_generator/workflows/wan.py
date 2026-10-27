@@ -20,6 +20,7 @@ def check_video_encoder():
 
 
 class WanWorkflow(TransformerWorkflow):
+    ui_modes = ("img2vid",)
     defaults = {
         "prompt": "", "negative_prompt": "", "positive_prefix": "", "positive_suffix": "",
         "trigger_words": [], "width": 832, "height": 480, "preserve_aspect_ratio": True,
@@ -64,6 +65,39 @@ class WanWorkflow(TransformerWorkflow):
                 raise ValueError(f"WAN LoRA {selection.asset.id!r} needs an explicit compatible model_variant")
             if compatibility.get("expert_target") not in {"high_noise", "low_noise"}:
                 raise ValueError(f"WAN LoRA {selection.asset.id!r} needs an explicit high_noise or low_noise expert_target")
+
+    def get_ui_definition(self, model, mode):
+        from .ui import UIField, common_fields, definition, frame_constraints, sampling_fields
+
+        minimum, step = frame_constraints(model.defaults["requirements"])
+        return definition(model, mode, workflow="wan", supported_modes=self.ui_modes,
+                          variant="wan_2_2_i2v_a14b", partial="controls/wan.html", fields=(
+            UIField("input_image", "Source image", "file", "Source image", scope="inputs", required=True,
+                    help="Select an image for this preview. Files are not saved; select it again after submitting."),
+            *common_fields(model, video=True),
+            UIField("preserve_aspect_ratio", "Preserve source aspect ratio", "boolean", "Output",
+                    help="Width and height set the pixel budget; actual dimensions follow the source image."),
+            UIField("num_frames", "Frame count", "integer", "Output", minimum=minimum, step=step,
+                    help=f"Start at {minimum} and increase by {step} frames."),
+            UIField("fps", "Playback FPS", "number", "Output", minimum=0,
+                    help="Must be greater than zero. Controls exported video playback."),
+            *sampling_fields(model, ("model_default",)),
+            UIField("guidance_scale_2", "Low-noise guidance", "number", "Sampling", minimum=0,
+                    help="Both guidance values must be above 1 for CFG, or both at most 1."),
+            UIField("enable_vae_tiling", "Enable VAE tiling", "boolean", "Advanced"),
+        ))
+
+    def validate_form_settings(self, model, mode, settings):
+        from .ui import FormValidationError
+
+        super().validate_form_settings(model, mode, settings)
+        errors = {}
+        if settings["fps"] <= 0:
+            errors["fps"] = "Playback FPS must be greater than zero."
+        if (settings["guidance_scale"] > 1) != (settings["guidance_scale_2"] > 1):
+            errors["guidance_scale_2"] = "Both guidance values must be above 1 for CFG, or both at most 1."
+        if errors:
+            raise FormValidationError(errors)
 
     def _build_pipeline(self, request):
         path = request.model.asset_paths["weights"]

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "fixture-wan-unknown",
+  "display_name": "WAN unknown adapter",
+  "description": "UI fixture adapter with absent weights.",
+  "family": "wan",
+  "adapter_type": "lora",
+  "source_url": null,
+  "source_model_id": null,
+  "source_version_id": null,
+  "weights": "missing-unknown.safetensors",
+  "sha256": null,
+  "notes_file": null,
+  "preview_image": null,
+  "compatibility": {
+    "model_variant": "wan_2_2_i2v_a14b",
+    "expert_target": null,
+    "trained_on": null,
+    "verified_checkpoint_ids": [],
+    "notes": ""
+  },
+  "settings": {
+    "strength": 0.8,
+    "trigger_words": [
+      "wan_unknown"
+    ],
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {
+      "num_inference_steps": 18
+    }
+  }
+}

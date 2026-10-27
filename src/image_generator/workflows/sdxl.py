@@ -21,6 +21,7 @@ SAMPLERS = {
 
 
 class SDXLWorkflow(Workflow):
+    ui_modes = ("txt2img",)
     defaults = {
         "prompt": "", "negative_prompt": "", "positive_prefix": "", "positive_suffix": "",
         "trigger_words": [], "width": 1024, "height": 1024,
@@ -119,6 +120,16 @@ class SDXLWorkflow(Workflow):
             if not _nonnegative_number(selection.strength):
                 raise ValueError(f"LoRA {asset.id!r} strength must be a finite number >= 0")
             self._validate_weights(asset.asset_paths["weights"], f"LoRA {asset.id!r}")
+
+    def get_ui_definition(self, model, mode):
+        from .ui import UIField, common_fields, definition, sampling_fields
+
+        return definition(model, mode, workflow="sdxl", supported_modes=self.ui_modes, fields=(
+            *common_fields(model, dimension_base=8),
+            *sampling_fields(model, ("model_default", *SAMPLERS)),
+            UIField("clip_skip", "Clip skip", "integer", "Advanced", minimum=0, nullable=True,
+                    help="Leave blank to use the pipeline default."),
+        ))
 
     @staticmethod
     def _validate_weights(path, label, *, optional=False):

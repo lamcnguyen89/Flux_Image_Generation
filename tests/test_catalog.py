@@ -152,13 +152,20 @@ class CatalogTests(unittest.TestCase):
         path = self.write_model(weights=None)
         self.assert_invalid(path, "base_model_id")
 
-    def test_missing_user_file_means_no_overrides_and_creates_no_files(self):
+    def test_missing_user_file_is_initialized_with_no_overrides(self):
         self.write_model()
         before = set(self.root.rglob("*"))
         asset = discover_catalog(self.root).get_model("model-test")
         self.assertEqual(asset.resolve_settings(), self.model["settings"])
+        self.assertTrue(asset.user_path.is_file())
+        self.assertEqual(json.loads(asset.user_path.read_text()), {"schema_version": 1, "settings": {}})
+        self.assertEqual(set(self.root.rglob("*")), before | {asset.user_path})
+
+    def test_read_only_discovery_keeps_missing_user_files_in_memory(self):
+        self.write_model()
+        asset = discover_catalog(self.root, initialize_missing=False).get_model("model-test")
+        self.assertEqual(asset.user_overrides, {"schema_version": 1, "settings": {}})
         self.assertFalse(asset.user_path.exists())
-        self.assertEqual(set(self.root.rglob("*")), before)
 
     def test_user_settings_are_resolved_without_changing_sources(self):
         manifest = self.write_model()

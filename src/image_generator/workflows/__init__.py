@@ -1,1 +1,1 @@
-"""Model family workflows; implementations will follow notebook experiments."""
+"""Model family generation workflows and lightweight UI contracts."""

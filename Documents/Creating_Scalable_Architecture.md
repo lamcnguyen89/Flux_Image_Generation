@@ -192,3 +192,66 @@ Flask should submit the job and return its ID while generation continues in anot
 Save a snapshot of the resolved settings, model, LoRAs, actual seed, and input references with each job. Later settings edits should not alter an already queued job.
 
 I’d implement this incrementally: **catalog and settings resolution first, one SDXL workflow end to end next, then multiple LoRAs, FLUX, and WAN.** Keep the notebooks as clients of that same Python code so experiments and the Flask application use the same generation behavior.
+
+## So how do I structure the web interface when I am using new models that require tuning different settings?
+
+**Use a shared generation page, with each workflow defining the settings it exposes.** A new checkpoint can reuse those controls; a new model architecture can supply a different definition and any custom controls it needs.
+
+Your existing structure already gives you the right places:
+
+| Location | Responsibility |
+|---|---|
+| `workflows/base.py` | Define the common workflow interface and field definitions. |
+| `workflows/sdxl.py`, `flux.py`, `wan.py` | Declare supported modes, controls, and validation rules. |
+| `workflows/registry.py` | Map a manifest’s `workflow` value to its Python implementation. |
+| Model JSON files | Store defaults, saved overrides, and checkpoint-specific requirements. |
+| Flask templates | Render the shared page and workflow-specific controls. |
+
+For example, a workflow’s field definition could look like this—this is an illustrative interface to implement:
+
+```python
+{
+    "name": "num_inference_steps",
+    "label": "Inference steps",
+    "type": "integer",
+    "minimum": 1,
+    "group": "Sampling",
+    "help": "Number of denoising steps."
+}
+```
+
+Keep the current value separate. Your existing settings resolver supplies that value from model defaults and user overrides.
+
+The generation page then follows this flow:
+
+```text
+Select model
+    → Find its workflow
+    → Select a supported mode
+    → Get field definitions and resolve settings
+    → Render controls with their current values
+```
+
+Most fields can use reusable template components: text areas for prompts, number inputs, checkboxes, dropdowns, and grouped advanced settings. For example:
+
+```text
+web/templates/
+├── generate.html
+└── controls/
+    ├── field.html
+    ├── common.html
+    ├── sdxl.html
+    ├── flux.html
+    └── wan.html
+```
+
+`generate.html` owns the overall layout: model information, mode selection, settings, LoRAs, submission, and results. Generic fields use `field.html`. A workflow can provide a custom partial when it needs a more specialized interaction, such as WAN’s high-noise and low-noise adapter controls.
+
+**Put validation alongside the workflow definition.** Input attributes help the user enter values, while Python validates submitted settings independently. Rules involving multiple settings—such as WAN’s frame-count requirements or paired guidance scales—need workflow validation beyond individual field types.
+
+This gives you two straightforward extension paths:
+
+- **Another checkpoint using an existing workflow:** add its manifests and assets. Existing controls use its defaults and requirements.
+- **A model needing new pipeline behavior:** implement its workflow, register it, and add field definitions or a custom partial as needed.
+
+Your current read-only settings page can continue displaying arbitrary settings as JSON values. The next useful implementation step is to define this field interface and build an SDXL configuration form around it, then extend the same page for FLUX and WAN.

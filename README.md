@@ -1,6 +1,6 @@
 # Image Generator
 
-Local image and video generation with a read-only Flask model catalog.
+Local image and video generation with a Flask model catalog and generation forms.
 Model assets and experiment notebooks live in `Models/Model_Families/`.
 See the [model folder layout](Models/Model_Families/README.md) for the checkpoint
 and LoRA folders, SDXL/FLUX/WAN configurations, and reusable JSON examples.
@@ -17,6 +17,20 @@ and LoRAs, or add `--json` to inspect their effective settings. See the
 Run `.venv/bin/python main.py` and open <http://127.0.0.1:5000> to browse the
 catalog and inspect each model's resolved settings and linked LoRAs. See the
 [web interface guide](Documents/Web_Interface.md) for configuration and tests.
+
+Choose **Configure generation** to edit SDXL, FLUX, or WAN settings and preview
+the typed request. For a demo without weights or a GPU, run
+`IMAGE_GENERATOR_CATALOG_ROOT=tests/fixtures/model_families .venv/bin/python main.py`.
+See [generation UI testing](Documents/Generation_UI.md) for the workflow contract,
+fixture pages, and automated/manual checks. This stage previews forms; generation
+and settings persistence will be connected separately.
+
+Catalog loading automatically creates missing model/LoRA defaults from the
+family's example JSON and missing user files with empty overrides. Existing
+files are preserved. New entries receive unique IDs and detected weight paths;
+review template settings and supply actual compatibility metadata before generation.
+The reusable `initialize_asset()` helper also supports future upload handlers;
+see [manifest initialization](Documents/Catalog.md#automatic-manifest-initialization).
 
 Generate one image with the catalog's base SDXL model:
 

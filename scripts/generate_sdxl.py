@@ -64,7 +64,7 @@ def main(argv=None):
     parser.add_argument("--dtype", choices=["float16", "bfloat16", "float32"])
     parser.add_argument("--cache-dir", type=Path, help="exact Hugging Face hub cache directory")
     parser.add_argument("--local-files-only", action="store_true", help="never download pipeline components")
-    parser.add_argument("--dry-run", action="store_true", help="print validated request JSON without importing GPU libraries or writing files")
+    parser.add_argument("--dry-run", action="store_true", help="print validated request JSON without importing GPU libraries or generating outputs; missing catalog manifests are initialized")
     args = parser.parse_args(argv)
     overrides = {key: getattr(args, key) for key in (
         "prompt", "negative_prompt", "width", "height", "num_inference_steps",

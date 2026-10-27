@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "id": "fixture-wan",
+  "display_name": "WAN fixture model",
+  "description": "UI fixture with intentionally absent weights; previews require no GPU.",
+  "family": "wan",
+  "workflow": "wan",
+  "model_variant": "wan_2_2_i2v_a14b",
+  "weights_component": "pipeline",
+  "source_url": null,
+  "source_model_id": null,
+  "source_version_id": null,
+  "weights": null,
+  "sha256": null,
+  "base_model_id": "Wan-AI/Wan2.2-I2V-A14B-Diffusers",
+  "notes_file": null,
+  "preview_image": null,
+  "supported_modes": [
+    "img2vid"
+  ],
+  "requirements": {
+    "requires_input_image": true,
+    "required_components": [
+      "transformer",
+      "transformer_2"
+    ],
+    "dimension_multiple": 16,
+    "frame_count": {
+      "minimum": 5,
+      "step": 4,
+      "offset": 1
+    },
+    "scheduler_config": {}
+  },
+  "settings": {
+    "prompt": "",
+    "negative_prompt": "",
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "trigger_words": [],
+    "width": 832,
+    "height": 480,
+    "preserve_aspect_ratio": true,
+    "num_frames": 161,
+    "fps": 16,
+    "num_videos_per_prompt": 1,
+    "num_inference_steps": 40,
+    "guidance_scale": 3.5,
+    "guidance_scale_2": 3.5,
+    "seed": null,
+    "enable_vae_tiling": true,
+    "sampling": {
+      "sampler": "model_default",
+      "noise_schedule": "default"
+    },
+    "loras": []
+  }
+}

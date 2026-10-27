@@ -1,4 +1,4 @@
-# Read-only Flask catalog
+# Flask catalog and generation forms
 
 Run from the project root after the [environment setup](Setup.md):
 
@@ -22,10 +22,19 @@ factory CLI:
   LoRAs and their strengths/selections, defaults, user overrides, requirements,
   and manifest paths. Values retain JSON types: `null`, `false`, lists, and
   nested objects remain distinguishable.
+- `/generate/<model_id>` renders the workflow's editable form. POST previews
+  typed settings and reports errors without saving settings or running generation.
+  See [generation forms](Generation_UI.md) for fixture startup and testing.
 
-Pages support GET and HEAD. There are no editing or generation endpoints;
-write requests return 405. Browsing does not load weights, import workflows,
-queue jobs, or create user files. LoRA family counts are inventory counts,
+The catalog and saved-settings pages support GET and HEAD; writes to those
+routes return 405. Generation forms support GET, HEAD, and stateless POST previews.
+Browsing never loads weights or queues jobs. Catalog browsing keeps workflow
+imports lazy; generation forms import only lightweight definitions and validation.
+Catalog loading creates missing defaults/user JSON files using
+the [initialization rules](Catalog.md#automatic-manifest-initialization), without
+editing existing files. The library must be writable when manifests are missing;
+initialization errors appear on the catalog diagnostic page.
+LoRA family counts are inventory counts,
 not claims of checkpoint compatibility. Only explicitly linked adapters appear
 on model pages. A checkpoint-specific strength takes precedence over the
 adapter's resolved strength; recommendations are displayed separately and
@@ -58,9 +67,10 @@ explicit factory configuration takes precedence. Relative catalog roots resolve
 against the working directory. When installed outside an editable checkout,
 configure the path to your external model library explicitly.
 
-The factory is in `src/image_generator/__init__.py`. Views live in the `catalog`
-blueprint under `web/web.py`; shared templates and CSS are under `web/templates/`
-and `web/static/`. These assets are included in Python package builds. Flask
+The factory is in `src/image_generator/__init__.py`. Catalog views live in the
+`catalog` blueprint under `web/web.py`; the `generation` blueprint is in
+`web/generation_routes.py`. Shared templates, CSS, and JavaScript are under
+`web/templates/` and `web/static/`. These assets are included in Python package builds. Flask
 imports are deferred until the factory is called, preserving the catalog
 inspection script's ability to run without installed web or GPU dependencies.
 

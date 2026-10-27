@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "controls/field.html" import render_field %}
+{% from "controls/loras.html" import adapter_cards %}
+{% block title %}Configure {{ model.display_name }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('catalog.static', filename='generation.css') }}">{% endblock %}
+{% block content %}
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="{{ url_for('catalog.index') }}">Model catalog</a><span aria-hidden="true"> / </span><a href="{{ url_for('catalog.model_settings', model_id=model.id) }}">{{ model.display_name }}</a><span aria-hidden="true"> / </span><span aria-current="page">Configure</span></nav>
+<div class="page-heading">
+  <div class="badges"><span class="badge">{{ model.family | upper }}</span><span class="badge accent">Form preview</span></div>
+  <h1>{{ model.display_name }}</h1>
+  <p class="muted">Configure your {{ 'video' if ui.mode == 'img2vid' else 'image' }}. Preview the request before generation is connected.</p>
+</div>
+{% if errors %}
+<section class="card form-errors" role="alert" aria-labelledby="errors-heading"><h2 id="errors-heading">Check these values</h2><ul>{% for name, message in errors.items() %}<li><strong>{{ name }}</strong>: {{ message }}</li>{% endfor %}</ul></section>
+{% endif %}
+<form method="post" action="{{ url_for('generation.configure', model_id=model.id) }}" enctype="multipart/form-data" id="generation-form">
+  <div class="generation-layout">
+    <div class="generation-controls">
+      <section class="card form-section"><label for="generation-mode">Generation mode</label><select id="generation-mode" name="mode">{% for mode in ui.supported_modes %}<option value="{{ mode }}"{% if mode == ui.mode %} selected{% endif %}>{{ mode | mode_label }}</option>{% endfor %}</select></section>
+      {% for group, fields in ui.groups.items() %}
+        {% if group == 'Advanced' %}<details class="card form-section"><summary>Advanced settings</summary><div class="field-grid">{% for field in fields %}{{ render_field(field, values, errors) }}{% endfor %}</div></details>
+        {% else %}<fieldset class="card form-section"><legend>{{ group }}</legend><div class="field-grid">{% for field in fields %}{{ render_field(field, values, errors) }}{% endfor %}</div>{% if group == 'Sampling' and ui.workflow == 'flux' %}<p class="field-help" id="cfg-status" aria-live="polite">Negative prompting requires true CFG above 1.</p>{% endif %}</fieldset>{% endif %}
+      {% endfor %}
+      {% if ui.partial %}{% include ui.partial %}{% endif %}
+      <section class="card form-section" aria-labelledby="loras-heading">
+        <div class="section-heading"><h2 id="loras-heading">LoRAs</h2><span class="muted">{{ loras | length }} available entries</span></div>
+        <p class="field-help">Enable multiple adapters and set each strength. Unverified entries still require loader compatibility checks.</p>
+        {% if errors.get('loras') %}<p class="field-error">{{ errors.loras }}</p>{% endif %}
+        {% if ui.workflow == 'wan' %}
+          {% for target, label in [('high_noise', 'High-noise adapters'), ('low_noise', 'Low-noise adapters'), ('unknown', 'Unavailable or unconfigured adapters')] %}<fieldset class="adapter-group"><legend>{{ label }}</legend>{{ adapter_cards(loras | selectattr('expert', 'equalto', target) | list, errors) }}</fieldset>{% endfor %}
+        {% else %}{{ adapter_cards(loras, errors) }}{% endif %}
+        <label class="checkbox-label"><input type="checkbox" name="include_trigger_words"{% if include_triggers %} checked{% endif %}>Include model and enabled adapter trigger words</label>
+      </section>
+    </div>
+    <aside class="generation-review" aria-labelledby="review-heading">
+      <section class="card form-section">
+        <p class="eyebrow">Review configuration</p><h2 id="review-heading">Request preview</h2>
+        <p class="muted">Preview checks your form values. It does not load weights, generate media, or save settings.</p>
+        <button type="submit" class="primary-button">Preview request</button>
+        <a class="reload-link" href="{{ url_for('generation.configure', model_id=model.id, mode=ui.mode) }}">Reload saved settings</a>
+        {% if preview %}<p class="preview-success" role="status">Form values are valid. Generation assets have not been checked.</p><p class="field-help">Source filenames describe this preview only; files are not saved.</p><pre class="json-block request-preview" id="request-preview">{{ preview | tojson(indent=2) }}</pre>
+        {% else %}<p class="field-help">Your resolved request will appear here after a successful preview.</p>{% endif %}
+      </section>
+    </aside>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('catalog.static', filename='generation.js') }}" defer></script>{% endblock %}

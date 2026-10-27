@@ -1,4 +1,4 @@
-"""Run the local, read-only Flask catalog with `python main.py`."""
+"""Run the local Flask catalog and generation forms with `python main.py`."""
 
 from pathlib import Path
 import sys

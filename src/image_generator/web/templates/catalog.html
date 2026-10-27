@@ -20,7 +20,10 @@
       </div>
       <h3><a href="{{ url_for('catalog.model_settings', model_id=model.id) }}">{{ model.display_name }}</a></h3>
       <p class="muted description">{{ model.defaults.get('description', '') }}</p>
+      <div class="model-actions">
       <a class="action-link" href="{{ url_for('catalog.model_settings', model_id=model.id) }}" aria-label="View settings for {{ model.display_name }}">View settings <span aria-hidden="true">→</span></a>
+      <a class="action-link" href="{{ url_for('generation.configure', model_id=model.id) }}" aria-label="Configure generation for {{ model.display_name }}">Configure generation <span aria-hidden="true">→</span></a>
+      </div>
     </article>
     {% endfor %}
   </div>

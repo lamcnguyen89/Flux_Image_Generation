@@ -3,6 +3,7 @@
 from html.parser import HTMLParser
 import json
 from pathlib import Path
+import shutil
 import sys
 import tempfile
 import unittest
@@ -131,6 +132,37 @@ class WebTests(unittest.TestCase):
         self.assertEqual(SettingsTable(self.client.get("/models/demo-model").get_data(as_text=True)).values["width"], 1024)
         self.write_user({"width": 640})
         self.assertEqual(SettingsTable(self.client.get("/models/demo-model").get_data(as_text=True)).values["width"], 640)
+
+    def test_browsing_creates_missing_user_manifest(self):
+        user = self.model_path.with_name("model.user.json")
+        self.assertFalse(user.exists())
+        self.assertEqual(self.client.get("/").status_code, 200)
+        self.assertEqual(json.loads(user.read_text()), {"schema_version": 1, "settings": {}})
+
+    def test_refresh_discovers_new_checkpoint_and_lora_without_manifests(self):
+        for folder, kind in (("checkpoints", "model"), ("loras", "lora")):
+            parent = self.root / "SDXL" / folder
+            directory = parent / "new-upload"
+            directory.mkdir(parents=True)
+            (directory / "uploaded.safetensors").touch()
+            for layer in ("defaults", "user"):
+                name = f"{kind}.{layer}.example.json"
+                shutil.copyfile(ROOT / "Models/Model_Families/SDXL" / folder / name, parent / name)
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("new-upload", response.get_data(as_text=True))
+        self.assertIn("2 models", response.get_data(as_text=True))
+        self.assertIn("1 registered LoRA", response.get_data(as_text=True))
+        model = json.loads((self.root / "SDXL/checkpoints/new-upload/model.defaults.json").read_text())
+        self.assertEqual(self.client.get(f"/models/{model['id']}").status_code, 200)
+
+    def test_initialization_failure_shows_catalog_diagnostic(self):
+        directory = self.root / "FLUX/checkpoints/new-upload"
+        directory.mkdir(parents=True)
+        (directory / "uploaded.safetensors").touch()
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("model.defaults.example.json", response.get_data(as_text=True))
 
     def test_unknown_model_and_lora_id_return_404(self):
         self.write_lora()
