@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <p class="eyebrow">Model library</p>
+  <h1>{{ title }}</h1>
+  <p class="muted">{{ message }}</p>
+</section>
+{% if issues %}
+<section class="card panel-body" aria-label="Configuration errors">
+  <ul class="issue-list">{% for issue in issues %}<li><code>{{ issue.path }}</code><p><strong>{{ issue.field }}</strong>: {{ issue.message }}</p></li>{% endfor %}</ul>
+</section>
+{% endif %}
+<p><a class="action-link" href="{{ url_for('catalog.index') }}">Return to model catalog <span aria-hidden="true">→</span></a></p>
+{% endblock %}

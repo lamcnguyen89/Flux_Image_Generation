@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Model catalog{% endblock %} · Image Generator</title>
+  <link rel="stylesheet" href="{{ url_for('catalog.static', filename='catalog.css') }}">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="{{ url_for('catalog.index') }}">Image Generator</a>
+    <span class="badge">Local model library</span>
+  </header>
+  <main id="main" tabindex="-1">{% block content %}{% endblock %}</main>
+  <footer>Image Generator · Model catalog</footer>
+</body>
+</html>

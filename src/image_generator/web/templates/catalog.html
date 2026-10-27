@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-heading">
+  <p class="eyebrow">Your library</p>
+  <h1>Model catalog</h1>
+  <p class="muted">Browse models and inspect their saved settings.</p>
+  <p class="library-count">{{ model_count }} model{{ '' if model_count == 1 else 's' }} <span aria-hidden="true">·</span> {{ lora_count }} registered LoRA{{ '' if lora_count == 1 else 's' }}</p>
+</div>
+{% for family in families %}
+<section class="family-section" aria-labelledby="family-{{ loop.index }}">
+  <div class="section-heading">
+    <h2 id="family-{{ loop.index }}">{{ family.name | upper }}</h2>
+    <span class="muted">{{ family.models | length }} model{{ '' if family.models | length == 1 else 's' }} · {{ family.lora_count }} registered LoRA{{ '' if family.lora_count == 1 else 's' }}</span>
+  </div>
+  <div class="model-grid">
+    {% for model in family.models %}
+    <article class="card model-card">
+      <div class="badges">
+        {% for mode in model.defaults.supported_modes %}<span class="badge">{{ mode | mode_label }}</span>{% endfor %}
+      </div>
+      <h3><a href="{{ url_for('catalog.model_settings', model_id=model.id) }}">{{ model.display_name }}</a></h3>
+      <p class="muted description">{{ model.defaults.get('description', '') }}</p>
+      <a class="action-link" href="{{ url_for('catalog.model_settings', model_id=model.id) }}" aria-label="View settings for {{ model.display_name }}">View settings <span aria-hidden="true">→</span></a>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="card empty-state">
+  <h2>No models found</h2>
+  <p class="muted">Add a model.defaults.json file under a family’s checkpoints folder to make a model appear here.</p>
+</section>
+{% endfor %}
+{% endblock %}

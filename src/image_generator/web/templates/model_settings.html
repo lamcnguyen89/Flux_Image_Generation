@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ model.display_name }}{% endblock %}
+{% block content %}
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="{{ url_for('catalog.index') }}">Model catalog</a><span aria-hidden="true"> / </span><span aria-current="page">{{ model.display_name }}</span></nav>
+<div class="page-heading">
+  <div class="badges"><span class="badge">{{ model.family | upper }}</span><span class="badge accent">Read only</span></div>
+  <h1>{{ model.display_name }}</h1>
+  <p class="muted">{{ model.defaults.get('description', '') }}</p>
+</div>
+<section class="card overview" aria-label="Model information">
+  <dl class="metadata">
+    <div><dt>Workflow</dt><dd>{{ model.defaults.workflow }}</dd></div>
+    <div><dt>Modes</dt><dd>{% for mode in model.defaults.supported_modes %}{{ mode | mode_label }}{{ ', ' if not loop.last }}{% endfor %}</dd></div>
+    <div><dt>Model variant</dt><dd>{{ model.defaults.get('model_variant') or 'Unspecified' }}</dd></div>
+    <div><dt>Weight source</dt><dd>{{ model.defaults.weights or model.defaults.base_model_id }}</dd></div>
+  </dl>
+</section>
+<section class="card settings-panel" aria-labelledby="settings-heading">
+  <div class="panel-heading"><h2 id="settings-heading">Resolved settings</h2><p class="muted">Model defaults combined with saved user overrides.</p></div>
+  {% if settings %}
+  <div class="table-scroll">
+    <table>
+      <caption class="sr-only">Resolved model settings as JSON values</caption>
+      <thead><tr><th scope="col">Setting</th><th scope="col">Value</th></tr></thead>
+      <tbody>{% for key, value in settings.items() %}<tr><th scope="row"><code>{{ key }}</code></th><td><pre class="setting-value">{{ value | tojson(indent=2) }}</pre></td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% else %}<p class="panel-body muted">No settings are defined for this model.</p>{% endif %}
+</section>
+<section class="family-section" aria-labelledby="loras-heading">
+  <div class="section-heading"><h2 id="loras-heading">Linked LoRAs</h2><span class="muted">{{ linked_loras | length }} linked</span></div>
+  {% for item in linked_loras %}
+  <article class="card lora-card">
+    <div class="section-heading"><h3>{{ item.asset.display_name }}</h3><span class="badge {{ 'accent' if item.enabled else '' }}">{{ 'Enabled' if item.enabled else 'Disabled' }}</span></div>
+    <p>Saved strength: <code>{{ item.strength | tojson }}</code></p>
+    <p class="muted">{{ 'Compatibility recorded for this checkpoint.' if item.verified else 'Compatibility has not been verified for this checkpoint.' }}</p>
+    <details><summary>Adapter settings</summary><pre class="json-block">{{ item.settings | tojson(indent=2) }}</pre></details>
+  </article>
+  {% else %}<div class="card empty-state"><p>No LoRAs are linked to this model.</p><p class="muted">Links appear here when saved in the model’s user settings.</p></div>{% endfor %}
+</section>
+<section class="card source-panel" aria-labelledby="sources-heading">
+  <h2 id="sources-heading">Configuration sources</h2>
+  <details><summary>Model defaults</summary><pre class="json-block">{{ model.defaults.settings | tojson(indent=2) }}</pre></details>
+  <details><summary>Saved user overrides</summary><pre class="json-block">{{ model.user_overrides.settings | tojson(indent=2) }}</pre></details>
+  <details><summary>Pipeline requirements</summary><pre class="json-block">{{ model.defaults.requirements | tojson(indent=2) }}</pre></details>
+  <details>
+    <summary>Manifest details</summary>
+    <dl class="file-details">
+      <dt>Permanent model ID</dt><dd><code>{{ model.id }}</code></dd>
+      <dt>Defaults file</dt><dd><code>{{ model.manifest_path }}</code></dd>
+      <dt>User settings file (optional)</dt><dd><code>{{ model.user_path }}</code></dd>
+      {% for field, path in model.asset_paths.items() %}<dt>{{ field }}</dt><dd><code>{{ path if path is not none else 'null' }}</code></dd>{% endfor %}
+    </dl>
+  </details>
+</section>
+{% endblock %}

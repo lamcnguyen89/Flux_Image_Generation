@@ -1,0 +1,214 @@
+"""Exercise read-only Flask pages with temporary catalog manifests."""
+
+from html.parser import HTMLParser
+import json
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from image_generator import create_app
+
+
+class SettingsTable(HTMLParser):
+    """Read rendered values rather than asserting values in hidden source JSON."""
+
+    def __init__(self, html):
+        super().__init__()
+        self.values = {}
+        self.key = []
+        self.value = []
+        self.cell = None
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "tr":
+            self.key, self.value = [], []
+        elif tag == "th" and dict(attrs).get("scope") == "row":
+            self.cell = self.key
+        elif tag == "td":
+            self.cell = self.value
+
+    def handle_data(self, data):
+        if self.cell is not None:
+            self.cell.append(data)
+
+    def handle_endtag(self, tag):
+        if tag in ("th", "td"):
+            self.cell = None
+        elif tag == "tr" and self.key:
+            self.values["".join(self.key)] = json.loads("".join(self.value))
+
+
+class WebTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.model_path = self.root / "SDXL/checkpoints/demo/model.defaults.json"
+        self.model = {
+            "schema_version": 1, "id": "demo-model", "display_name": "Demo checkpoint",
+            "description": "A local test model.", "family": "sdxl", "workflow": "sdxl",
+            "weights": None, "base_model_id": "example/pretrained",
+            "supported_modes": ["txt2img"], "requirements": {"dimension_multiple": 8},
+            "settings": {"width": 1024, "height": 1024, "seed": 42, "loras": [],
+                         "sampling": {"sampler": "euler", "noise_schedule": "default"}},
+        }
+        self.write(self.model_path, self.model)
+        self.app = create_app({"TESTING": True, "CATALOG_ROOT": self.root})
+        self.client = self.app.test_client()
+
+    def write(self, path, document):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(document), encoding="utf-8")
+        return path
+
+    def write_user(self, settings):
+        return self.write(self.model_path.with_name("model.user.json"), {"schema_version": 1, "settings": settings})
+
+    def write_lora(self):
+        return self.write(self.root / "SDXL/loras/demo/lora.defaults.json", {
+            "schema_version": 1, "id": "demo-lora", "display_name": "Demo adapter",
+            "family": "sdxl", "adapter_type": "lora", "weights": "missing.safetensors",
+            "compatibility": {"verified_checkpoint_ids": []},
+            "settings": {"strength": 0.8, "trigger_words": ["demo"], "recommended_generation": {"width": 512}},
+        })
+
+    def test_catalog_lists_models_modes_and_links(self):
+        self.write_lora()
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("Demo checkpoint", html)
+        self.assertIn('href="/models/demo-model"', html)
+        self.assertIn("Text to image", html)
+        self.assertIn("1 model", html)
+        self.assertIn("1 registered LoRA", html)
+        self.assertNotIn("<form", html)
+
+    def test_settings_page_displays_resolved_values_and_sources(self):
+        self.write_user({"width": 768, "seed": None, "sampling": {"sampler": "custom"}})
+        response = self.client.get("/models/demo-model")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        settings = SettingsTable(html).values
+        self.assertEqual(settings["width"], 768)
+        self.assertEqual(settings["height"], 1024)
+        self.assertIsNone(settings["seed"])
+        self.assertEqual(settings["sampling"], {"sampler": "custom", "noise_schedule": "default"})
+        for text in ("Read only", "Saved user overrides", "Pipeline requirements", "example/pretrained", str(self.model_path)):
+            self.assertIn(text, html)
+        self.assertNotIn("<form", html)
+        self.assertNotIn("<input", html)
+
+    def test_linked_loras_show_saved_selection_and_checkpoint_strength(self):
+        lora = self.write_lora()
+        self.write(lora.with_name("lora.user.json"), {"schema_version": 1, "settings": {"strength": 0.6}})
+        self.write_user({"loras": [{"id": "demo-lora", "enabled": False, "strength": 0.3}]})
+        response = self.client.get("/models/demo-model")
+        html = response.get_data(as_text=True)
+        self.assertIn("Demo adapter", html)
+        self.assertIn("Disabled", html)
+        self.assertIn("Saved strength: <code>0.3</code>", html)
+        self.assertIn("Compatibility has not been verified", html)
+        self.assertEqual(SettingsTable(html).values["width"], 1024)
+        self.write_user({"loras": [{"id": "demo-lora", "enabled": True}]})
+        html = self.client.get("/models/demo-model").get_data(as_text=True)
+        self.assertIn("Saved strength: <code>0.6</code>", html)
+        self.assertIn("Enabled", html)
+
+    def test_unlinked_adapters_are_not_automatically_shown_as_linked(self):
+        self.write_lora()
+        html = self.client.get("/models/demo-model").get_data(as_text=True)
+        self.assertIn("No LoRAs are linked", html)
+        self.assertNotIn("Demo adapter", html)
+
+    def test_manifest_edits_appear_on_next_request(self):
+        self.assertEqual(SettingsTable(self.client.get("/models/demo-model").get_data(as_text=True)).values["width"], 1024)
+        self.write_user({"width": 640})
+        self.assertEqual(SettingsTable(self.client.get("/models/demo-model").get_data(as_text=True)).values["width"], 640)
+
+    def test_unknown_model_and_lora_id_return_404(self):
+        self.write_lora()
+        for url in ("/models/missing", "/models/demo-lora", "/missing"):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 404)
+                self.assertIn("Page not found", response.get_data(as_text=True))
+
+    def test_pages_reject_writes_and_ignore_request_overrides(self):
+        self.write_user({"width": 768})
+        before = {path: path.read_bytes() for path in self.root.rglob("*.json")}
+        for url in ("/", "/models/demo-model"):
+            for method in ("POST", "PUT", "PATCH", "DELETE"):
+                with self.subTest(url=url, method=method):
+                    self.assertEqual(self.client.open(url, method=method, json={"width": 512}).status_code, 405)
+        html = self.client.get("/models/demo-model?width=512").get_data(as_text=True)
+        self.assertEqual(SettingsTable(html).values["width"], 768)
+        self.assertEqual(before, {path: path.read_bytes() for path in self.root.rglob("*.json")})
+
+    def test_invalid_catalog_shows_diagnostics_and_recovers_after_fix(self):
+        self.model_path.write_text("{", encoding="utf-8")
+        for url in ("/", "/models/demo-model"):
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 503)
+            self.assertIn("Catalog unavailable", response.get_data(as_text=True))
+            self.assertIn(str(self.model_path), response.get_data(as_text=True))
+        self.write(self.model_path, self.model)
+        self.assertEqual(self.client.get("/").status_code, 200)
+
+    def test_missing_catalog_root_shows_diagnostics(self):
+        self.app.config["CATALOG_ROOT"] = self.root / "missing"
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("existing directory", response.get_data(as_text=True))
+
+    def test_empty_catalog_has_empty_state(self):
+        self.model_path.unlink()
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("No models found", response.get_data(as_text=True))
+
+    def test_manifest_content_is_escaped(self):
+        payload = '<script>alert("test")</script>'
+        self.write(self.model_path, {**self.model, "display_name": payload, "description": payload,
+                                   "settings": {**self.model["settings"], "prompt": payload}})
+        for url in ("/", "/models/demo-model"):
+            html = self.client.get(url).get_data(as_text=True)
+            self.assertNotIn(payload, html)
+            self.assertIn("&lt;script&gt;", html)
+
+    def test_static_assets_are_served_even_when_catalog_is_invalid(self):
+        self.model_path.write_text("{", encoding="utf-8")
+        response = self.client.get("/catalog-assets/catalog.css")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "text/css")
+        response.close()
+
+    def test_app_instances_use_independent_catalog_roots(self):
+        other_root = self.root / "empty"
+        other_root.mkdir()
+        other = create_app({"TESTING": True, "CATALOG_ROOT": other_root})
+        self.assertIn("No models found", other.test_client().get("/").get_data(as_text=True))
+        self.assertIn("Demo checkpoint", self.client.get("/").get_data(as_text=True))
+
+    def test_repository_catalog_and_every_model_page_render(self):
+        app = create_app({"TESTING": True, "CATALOG_ROOT": ROOT / "Models/Model_Families"})
+        from image_generator.catalog import discover_catalog
+
+        catalog = discover_catalog(app.config["CATALOG_ROOT"])
+        with app.test_client() as client:
+            self.assertEqual(client.get("/").status_code, 200)
+            for model in catalog.models.values():
+                with self.subTest(model=model.id):
+                    response = client.get(f"/models/{model.id}")
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(SettingsTable(response.get_data(as_text=True)).values, model.resolve_settings())
+
+
+if __name__ == "__main__":
+    unittest.main()

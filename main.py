@@ -1,1 +1,13 @@
-# TODO: Entry point for image and video generation pipeline
+"""Run the local, read-only Flask catalog with `python main.py`."""
+
+from pathlib import Path
+import sys
+
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+
+from image_generator import create_app
+
+
+if __name__ == "__main__":
+    create_app().run()
