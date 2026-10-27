@@ -2,7 +2,7 @@
 # Except for Flask, these direct pins were read from the existing huggingface
 # environment. They have not yet been validated in a fresh .venv.
 # TODO: Generate a complete lock from requirements.in on the target platform
-# after verifying the PyTorch wheel source. See Documents/Setup.md.
+# using the PyTorch wheel sources in scripts/setup.sh. See Documents/Setup.md.
 torch==2.14.1+cu132
 torchvision==0.29.1+cu132
 diffusers==0.42.0

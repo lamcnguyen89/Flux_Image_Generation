@@ -1,7 +1,7 @@
 # Direct runtime dependencies for the Python application.
 # Initial versions follow the existing Python 3.11 / Linux aarch64 environment.
-# Supply matching CUDA PyTorch/torchvision wheels to scripts/setup.sh; do not
-# substitute generic builds. Update these ranges after testing new workflows.
+# scripts/setup.sh supplies the matching official CUDA PyTorch/torchvision wheels.
+# Keep its default URLs aligned with these pins when updating the baseline.
 torch==2.14.1+cu132
 # Transformers 5's CLIP image processor used by WAN depends on torchvision.
 torchvision==0.29.1+cu132

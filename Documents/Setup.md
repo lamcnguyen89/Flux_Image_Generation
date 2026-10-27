@@ -15,9 +15,9 @@ These packages have not been validated together in a fresh environment. Keep the
 existing Conda environment during migration.
 
 `requirements.txt` currently pins direct dependencies only. It is **not** a
-complete generated lock of transitive dependencies. Generate that lock after
-confirming the matching PyTorch wheel source and resolving the runtime together
-on the target machine.
+complete generated lock of transitive dependencies. The default PyTorch wheel
+URLs are listed in the official CUDA 13.2 index. Generate the complete lock after
+resolving and validating the runtime together on the target machine.
 
 ## Files
 
@@ -34,30 +34,82 @@ on the target machine.
 
 ## First setup
 
-Use a Python 3.11 interpreter compatible with the selected PyTorch wheel. To
-eliminate the Conda dependency entirely, choose an interpreter installed outside
-Conda. Creating a venv from a Conda interpreter still depends on that interpreter.
+Use a standalone Python 3.11 interpreter compatible with the selected PyTorch
+wheel. Setup rejects Conda interpreters and venvs created from them: a venv keeps
+a dependency on its base Python installation. Activating `huggingface` or passing
+its Python path does not produce an environment independent of Conda.
 
-The existing PyTorch and torchvision installations have no recorded wheel URLs.
-Obtain the matching wheels from the source used for your Thor-compatible builds.
-The setup script takes explicit wheel paths or URLs and resolves them with the
-pinned runtime requirements; it does not silently select a generic PyTorch build.
+If standalone Python 3.11 is not installed, one option is uv's
+[standalone installer](https://docs.astral.sh/uv/getting-started/installation/),
+which does not require Python or Conda:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Open a new terminal so `uv` is on `PATH`, then install
+[uv-managed Python](https://docs.astral.sh/uv/guides/install-python/):
+
+```bash
+uv python install 3.11
+uv python find --managed-python 3.11
+```
+
+Use the printed path as `--python`, or use the command substitution below. Keep
+that standalone Python installation: `.venv` depends on it. An independently
+installed system Python 3.11 also works; pass its path explicitly if Conda comes
+first on `PATH`. Setup does not install Python automatically.
+
+Setup downloads these pinned GPU packages automatically from PyTorch's official
+CUDA 13.2 index. Both wheels target CPython 3.11 and Linux ARM64
+(`cp311-cp311-manylinux_2_28_aarch64`):
+
+| Package | Version | Official wheel listing |
+| --- | --- | --- |
+| torch | `2.14.1+cu132` | [PyTorch CUDA 13.2](https://download.pytorch.org/whl/cu132/torch/) |
+| torchvision | `0.29.1+cu132` | [torchvision CUDA 13.2](https://download.pytorch.org/whl/cu132/torchvision/) |
+
+This baseline targets the Jetson Thor CUDA 13.2 stack. The development machine
+has L4T 39.2.1 and CUDA 13.2.2. Download availability is verified; GPU compatibility
+is checked by `check_environment.py` after installation. A successful small GPU
+check still needs to be followed by real workflow validation.
+
+No manual wheel download or wheel arguments are needed:
+
+```bash
+bash scripts/setup.sh --python "$(uv python find --managed-python 3.11)"
+```
+
+If standalone `python3.11` is already on `PATH`, simply run:
+
+```bash
+bash scripts/setup.sh
+```
+
+For local wheel files or another verified source, `--torch-wheel` and
+`--torchvision-wheel` override the defaults independently. Both versions must
+still match `requirements.txt`; conflicting wheels fail dependency resolution.
+For example, with local copies of the same builds:
 
 ```bash
 bash scripts/setup.sh \
-  --python /path/to/python3.11 \
-  --torch-wheel /path/to/torch-2.14.1+cu132-cp311-cp311-linux_aarch64.whl \
-  --torchvision-wheel /path/to/torchvision-0.29.1+cu132-cp311-cp311-linux_aarch64.whl
+  --python /usr/bin/python3.11 \
+  --torch-wheel /path/to/torch-2.14.1+cu132-cp311-cp311-manylinux_2_28_aarch64.whl \
+  --torchvision-wheel /path/to/torchvision-0.29.1+cu132-cp311-cp311-manylinux_2_28_aarch64.whl
 ```
 
-The paths above are examples; substitute the interpreter and actual wheel you
-have verified. A conflicting wheel version will fail dependency resolution.
-`PYTHON_BIN`, `TORCH_WHEEL`, and `TORCHVISION_WHEEL` can also supply these arguments.
+Replace those paths with your installed interpreter and wheel files.
+`PYTHON_BIN`, `TORCH_WHEEL`, and `TORCHVISION_WHEEL` can also supply the overrides.
 
 To install optional development tools too, append `--dev`. The script installs
 only into the project's `.venv`; it does not modify the original Conda environment
 or install operating-system packages. JetPack, drivers, and required system
 libraries must already be available.
+
+If `.venv` was previously created from Conda, move it aside before rerunning
+setup with standalone Python. Setup will refuse to reuse it, including when
+`--python` selects a standalone interpreter. Keep the old environment until the
+replacement has been validated.
 
 After successful setup:
 
@@ -66,28 +118,27 @@ source .venv/bin/activate
 python scripts/check_environment.py
 ```
 
-Subsequent setup runs can reuse the exact PyTorch/torchvision builds already
-present in `.venv`, without specifying their wheels again. All runtime installs
-should continue to use the same requirements file.
+Subsequent setup runs also use the default wheel URLs unless overridden. Pip
+handles installed packages and cached downloads. All runtime installs continue
+to use the same requirements file.
 
 ## Generate the complete runtime lock
 
 Install the optional development requirements. Run compilation using the target
-Python 3.11 environment on the target platform, with the compatible torch and
-torchvision wheels available to the resolver. Place both wheels in a local wheel
-directory:
+Python 3.11 environment on the target platform, with both official wheel listings
+available to the resolver:
 
 ```bash
 .venv/bin/python -m piptools compile \
-  --find-links /path/to/verified-wheels \
+  --find-links https://download.pytorch.org/whl/cu132/torch/ \
+  --find-links https://download.pytorch.org/whl/cu132/torchvision/ \
   --output-file requirements.txt \
   requirements.in
 ```
 
-Keep that wheel directory available when recreating the environment, or use
-stable wheel URLs in the requirements input. A local wheel directory is a
-machine-specific source; do not describe a lock referencing it as portable.
-For another machine architecture, validate and generate a separate lock.
+Keep the verified wheel URLs in `scripts/setup.sh` aligned with the requirements
+pins when updating this baseline. For another CUDA stack, Python version, or
+machine architecture, validate the builds and generate a separate lock.
 
 Commit the requirements files together after reviewing the resolved versions.
 Check the environment and perform short real generations for SDXL, FLUX, and WAN,

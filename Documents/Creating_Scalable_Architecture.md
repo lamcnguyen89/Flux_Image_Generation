@@ -1,205 +1,194 @@
-This document records earlier architecture discussions. For the current folder
-structure, see the [model family layout](../Models/Model_Families/README.md).
-SDXL-based models are now consolidated under `Models/Model_Families/SDXL/`.
+## Can you help me figure out the structure of this application? What I'm trying to create is a Flask Application that has a lists of different image generation models and a single video generation model which are stored in the Models/Model_Families folder. You choose the model from that list and a custom image_generation page shows up that will let you generate images. Each model has its own list of LoRAS that you can choose from and you can add multiple LoRAS to that model to generate images. Each model and LoRA will have 2 json files. The first JSON file are preconfigured settings, and the second JSON file are user edited settings. I can switch which models are used. Some models can do text to image/video and/or image to image/video. I would like to make this application scalable in a similar way to a react app, but that isn't really reasonable as different models that will be added might have drastically different settings that need to be changed.
 
-## So I've changed the folder structure so that the main model  families for specialize image and video generation have their own folders. They are in the Models/Model_Families folder. In each folder... For example, the folder BigLust, there is an image generation notebook with its corresponding checkpoint and loras folder. The reason I have to set this up like this is because each model family will have its unique settings, default prompts, splash images, etc... Can you update each jupyter notebook in each of these subfolders in the Model_Families folder to have updated filepaths and to use the corresponding model, checkpoints and Loras? Some folders have multiple checkpoints or multiple LoRAS. Just choose one as a place holder if they are available. There might be no checkpoint or Lora in other model family folders.
 
-Yes—**a JSON file per LoRA, plus a JSON file per model family, fits your project well.** I would also allow checkpoint-specific JSON files, since two checkpoints within the same family can require different settings.
+Yes. **I’d structure this as a Flask application with a model catalog, reusable generation pages, and separate Python workflows for different pipeline types.** Each model can expose different controls while sharing the same navigation, LoRA selector, job handling, and results display.
 
-The scalable part is defining clear ownership and inheritance so you don’t repeat every setting in every file.
+React could support this too—different model settings don’t prevent component reuse. For your initial application, Flask templates and a small amount of JavaScript should be sufficient.
 
-For your existing folders, I’d use:
+After inspecting your repository, most generation logic is still in the notebooks. The files under `src/image_generator/` already outline the right responsibilities, but they’re placeholders.
+
+**1. Separate model families, selectable models, and workflows**
+
+These represent different things:
+
+| Concept | Meaning |
+|---|---|
+| Model family | A collection such as SDXL, FLUX, or WAN |
+| Selectable model | A particular checkpoint or pretrained model with its configuration |
+| Workflow | Python code that loads the pipeline and performs generation |
+| LoRA | An optional adapter with compatibility rules, settings, and prompts |
+
+Several selectable models can reuse a workflow. Your image notebooks mostly use `StableDiffusionXLPipeline`; they don’t each need a completely independent implementation. NoobAI has additional scheduler handling, while FLUX and WAN need substantially different code.
+
+Your current WAN notebook implements **image-to-video**. Text-to-video would need its own supported workflow before appearing as an available mode.
+
+**2. Keep your model assets together and application behavior in `src`**
+
+A proposed structure, building on your existing folders:
 
 ```text
+src/image_generator/
+├── __init__.py                 # create_app()
+├── web/
+│   ├── catalog_routes.py       # Model selection
+│   ├── generation_routes.py    # Generation page and submissions
+│   ├── settings_routes.py     # Save/reset user settings
+│   ├── job_routes.py           # Status and results
+│   ├── templates/
+│   │   ├── base.html
+│   │   ├── catalog.html
+│   │   ├── generate.html
+│   │   └── controls/
+│   │       ├── common.html
+│   │       ├── sdxl.html
+│   │       ├── flux.html
+│   │       └── wan.html
+│   └── static/
+├── catalog/
+│   ├── discovery.py
+│   ├── validation.py
+│   └── settings.py             # Resolve defaults and overrides
+├── workflows/
+│   ├── base.py                 # Shared workflow interface
+│   ├── registry.py
+│   ├── sdxl.py
+│   ├── flux.py
+│   └── wan.py
+├── generation.py              # Validate and prepare jobs
+└── worker.py                  # Own pipelines and execute jobs
+
 Models/Model_Families/
 └── SDXL1/
-    ├── family.json
     ├── SDXL_Image_Gen.ipynb
     ├── checkpoints/
-    │   ├── example.safetensors
-    │   └── example.json
-    ├── loras/
-    │   ├── ChelXL.safetensors
-    │   ├── ChelXL.json
-    │   └── ChelXL_Notes.md
-    └── assets/
-        └── splash.png
+    │   └── example_model/
+    │       ├── model.safetensors
+    │       ├── model.defaults.json
+    │       └── model.user.json
+    └── loras/
+        └── example_style/
+            ├── adapter.safetensors
+            ├── lora.defaults.json
+            └── lora.user.json
+
+data/
+└── jobs.sqlite3
 ```
 
-Putting the JSON beside its weights also works for your LoRAs that already have individual subfolders.
+For a model stored as multiple components, such as WAN, the model manifest can reference those components rather than a single checkpoint file.
 
-Each file would own different information:
+Organize Flask routes by responsibility using blueprints, and initialize the application through `create_app()`. These are established Flask patterns for modular applications. [Blueprints](https://flask.palletsprojects.com/en/stable/blueprints/), [application factories](https://flask.palletsprojects.com/en/stable/patterns/appfactories/).
 
-| File | What belongs there |
-|---|---|
-| `family.json` | Pipeline type, base repository, shared generation defaults, default prompts, splash image |
-| Checkpoint JSON | Weight filename, checkpoint-specific defaults, scheduler requirements, recommended prompts |
-| LoRA JSON | Weight filename, compatible families, trigger words, strength, example prompts, recommended settings |
-| Generated output JSON | Actual resolved settings, selected models, LoRA strengths, final prompt, seed |
+**3. Your two-JSON approach fits well**
 
-For example, a family configuration could look like this:
+Use the first file for shipped metadata and defaults:
 
 ```json
 {
   "schema_version": 1,
-  "id": "SDXL1",
-  "display_name": "Stable Diffusion XL 1.0",
-  "pipeline": "sdxl",
-  "base_model_id": "stabilityai/stable-diffusion-xl-base-1.0",
-  "default_checkpoint": null,
-  "generation_defaults": {
+  "id": "example-sdxl",
+  "display_name": "Example SDXL",
+  "workflow": "sdxl",
+  "weights": "model.safetensors",
+  "capabilities": ["txt2img"],
+  "settings": {
     "width": 1024,
     "height": 1024,
-    "num_inference_steps": 50,
+    "num_inference_steps": 30,
     "guidance_scale": 5.0
-  },
-  "prompt_defaults": {
-    "positive_prefix": "",
-    "negative_prompt": ""
-  },
-  "ui": {
-    "splash_image": "assets/splash.png"
   }
 }
 ```
 
-A starting structure for `ChelXL.json` could be:
+Use the second file for **only the settings the user changed**:
 
 ```json
 {
   "schema_version": 1,
-  "id": "chelxl",
-  "display_name": "ChelXL",
-  "weights": "ChelXL.safetensors",
-  "compatible_families": ["SDXL1"],
-  "trigger_words": [],
-  "default_strength": 0.8,
-  "recommended_generation": {},
-  "example_prompts": [],
-  "notes_file": "ChelXL_Notes.md"
+  "settings": {
+    "num_inference_steps": 40
+  }
 }
 ```
 
-The empty fields would be filled from its documentation. Define all paths inside a manifest as **relative to that JSON file**, so moving a LoRA’s folder keeps its weights, notes, and previews together.
-
-**Defaults and requirements should be separate.** This matters for your collection:
-
-- A recommended step count or guidance scale is a default the user can change.
-- NoobAI’s v-prediction scheduler is a model requirement.
-- A WAN LoRA targeting the high-noise expert needs an explicit target.
-- Compatibility should describe the actual supported family or variant; a shared SDXL architecture alone should not imply compatibility.
-
-I’d resolve ordinary defaults in this order, with later choices overriding earlier ones:
+The effective settings become:
 
 ```text
-Application defaults
-    → Family defaults
-    → Checkpoint defaults
-    → Explicitly selected LoRA preset
-    → User settings
+Workflow defaults
+    → Model defaults
+    → Saved model user overrides
+    → Current generation form values
 ```
 
-LoRA recommendations should remain available without automatically changing the whole generation setup. If several selected LoRAs recommend different guidance scales, the application should let the user choose which preset to apply. Required compatibility and pipeline constraints should be checked after resolving the settings.
+Define how merging works: recursively merge objects, replace arrays, and treat `null` as an explicit value only where supported. Removing an override restores its default.
 
-Keep trigger words separate from example prompts, too. That lets your future UI offer “Add trigger words,” display example prompts, and show the final assembled prompt before generation.
+Keep model identity, weight paths, supported modes, and mandatory pipeline requirements outside ordinary user-editable settings. Resolve asset paths relative to their manifest.
 
-**Build one shared Python loader that both the notebooks and Flask can call.** Its responsibilities would be discovering manifests, validating them, resolving paths and defaults, and producing a generation configuration. Keep pipeline construction in Python, with a small registry mapping values such as `"sdxl"`, `"flux"`, and `"wan_i2v"` to the corresponding implementation.
+For the initial local application, adjacent user files are reasonable. If you later support multiple accounts, store overrides by user under `data/users/<user_id>/` or in a database.
 
-Validate manifests when loading them. JSON Schema can enforce required fields, types, and allowed properties, catching misspellings before a model starts loading. [JSON Schema documentation](https://json-schema.org/understanding-json-schema/reference/object)
+**4. Build one generation page with configurable controls**
 
-When you introduce Flask, keep this model catalog in that shared service. Flask’s own configuration can handle application settings such as debug mode and deployment configuration. [Flask configuration documentation](https://flask.palletsprojects.com/en/stable/config/)
-
-JSON should serve this catalog well. If you later need job queues, generation history, favorites, or multiple users, those are good candidates for SQLite while the model and LoRA manifests remain portable JSON files.
-
-## So each checkpoint and each LoRA should be stored in its own folder with a corresponding JSON file?
-
-Yes—that’s the structure I’d recommend. Each folder keeps the weights and their supporting files together:
+A route such as:
 
 ```text
-BigLust/
-├── family.json
-├── checkpoints/
-│   └── bigLust_v16/
-│       ├── checkpoint.json
-│       ├── bigLust_v16.safetensors
-│       ├── notes.md
-│       └── preview.png
-└── loras/
-    └── example_style/
-        ├── lora.json
-        ├── example_style.safetensors
-        ├── notes.md
-        └── preview.png
+/generate/<model_id>
 ```
 
-Only the weights and JSON are essential; notes and previews are optional. Paths in each JSON should be relative to its own folder.
+can render `generate.html` using the selected model’s definition.
 
-The family’s `family.json` holds shared defaults. Each `checkpoint.json` or `lora.json` adds its own metadata, requirements, and settings.
+The page would combine:
 
-Your current flat checkpoint layout also works, so individual folders aren’t mandatory. They become useful as you add previews, documentation, and multiple versions. Moving to this structure would require updating the notebook paths again.
+- Shared controls: prompts, seed, dimensions, output count.
+- Mode controls: source image and image strength where supported.
+- Model controls: FLUX-specific options or WAN frame count and expert guidance.
+- LoRA controls: multiple selections, individual strengths, trigger words.
+- Shared job progress and results.
 
-## So alot of the LoRAS for the models have their own custom keywords, default prompts, generation settins, etc... What would be a scalable way to contain this data for each Lora and model that the Lora belongs to? Would a JSON file for each LoRA be good for this? Also Each model family has its own unique settinggs. Would a Json file be good for storing these unique settings? Eventually, I will move on from the Jupyter Notebooks since I will be building a simple flask application for the image and video generation.
+Each workflow should define its supported fields, types, defaults, and constraints. The frontend uses that definition to display controls; the backend validates submitted values independently.
 
-**Yes—a `.venv` inside the project root is a good direction.** For your application, I’d pair it with a dependency definition and lockfile so the environment can be recreated reliably.
+For unusual interfaces, allow a custom template partial or JavaScript component. **You don’t need to force every future model into one fixed form.**
 
-Conda already provides isolation. The larger improvement is making installation reproducible and moving generation logic into a shared Python package.
+Model-specific validation also matters. Your WAN notebook already checks frame-count constraints and relationships between expert guidance settings; those rules belong in the WAN workflow.
 
-**For the environment, I recommend:**
+**5. Treat selected LoRAs as a list**
 
-- `pyproject.toml` to declare the application and its dependencies.
-- `uv.lock` to record resolved dependency versions.
-- `.venv/` for the installed environment, excluded from Git.
-- A documented Python version compatible with your GPU packages.
+A generation request could contain:
 
-`uv` can manage the project environment and synchronize it with its lockfile. [uv documentation](https://docs.astral.sh/uv/concepts/projects/sync/)
+```json
+{
+  "model_id": "example-sdxl",
+  "mode": "txt2img",
+  "settings": {
+    "num_inference_steps": 40
+  },
+  "loras": [
+    {"id": "style-a", "strength": 0.7},
+    {"id": "detail-b", "strength": 0.4}
+  ]
+}
+```
 
-Treat `.venv` as something you recreate on each machine. Python environments are generally unsuitable for copying between machines or locations. [Python documentation](https://docs.python.org/3/library/venv.html)
+Each LoRA’s defaults file can describe compatible models, weights, trigger words, recommended settings, and default strength. Its user file stores edited values.
 
-**Your Thor GPU stack needs special attention during migration.** A virtual environment isolates Python packages; it doesn’t package the entire operating system or NVIDIA driver stack. NVIDIA’s Jetson PyTorch packages target specified JetPack versions. [NVIDIA documentation](https://docs.nvidia.com/deeplearning/frameworks/install-pytorch-jetson-platform/index.html)
+Resolve each LoRA’s defaults and user overrides separately. **Don’t automatically merge every LoRA’s recommended generation settings into the model settings**—two adapters may recommend conflicting step counts or guidance scales. Offer an explicit “Apply recommended settings” action instead.
 
-I would preserve your working Conda environment until the new environment passes actual image and video generation checks. Record the working Python, PyTorch, CUDA/JetPack versions, and PyTorch installation source first. Include any special PyTorch wheel or package index in the dependency setup so later synchronization preserves that choice.
+Diffusers documents loading named adapters and combining them with individual weights through `set_adapters()`. Implement that within each supported workflow and validate compatibility. [Diffusers multiple-LoRA documentation](https://huggingface.co/docs/diffusers/main/en/using-diffusers/merge_loras).
 
-For the application itself, I’d organize it approximately like this:
+WAN additionally needs explicit targeting of its high-noise and low-noise components, as your notebook already handles.
+
+**6. Let a worker manage generation and model switching**
+
+The request flow should be:
 
 ```text
-Image_Generator/
-├── pyproject.toml
-├── uv.lock
-├── .python-version
-├── .venv/                     # Generated locally; ignored by Git
-├── .env                       # Local paths and credentials
-├── .env.example
-├── src/
-│   └── image_generator/
-│       ├── web/               # Flask routes, templates, static files
-│       ├── catalog/           # JSON discovery and validation
-│       ├── pipelines/         # SDXL, FLUX, WAN implementations
-│       ├── generation.py      # Shared generation interface
-│       └── worker.py          # Queued generation jobs
-├── Models/
-│   └── Model_Families/         # Weights, manifests, notes, previews
-├── Images/
-├── Videos/
-├── data/                      # Job database and application state
-├── tests/
-└── Documents/
+Choose model → Configure → Validate → Queue job
+    → Worker generates → Page displays results
 ```
 
-The responsibilities would be:
+For your initial setup, I’d use one dedicated GPU worker processing one job at a time. It owns the loaded pipeline, switches models when required, and resets adapters between jobs. Browsing another model’s page should not immediately load it onto the GPU.
 
-| Component | Responsibility |
-|---|---|
-| Model catalog | Discover families, checkpoints, and LoRAs; validate their JSON |
-| Configuration resolver | Combine defaults, selections, and user settings |
-| Pipeline implementations | Load models, manage adapters, generate outputs |
-| GPU worker | Own loaded models and process generation jobs |
-| Flask application | Present controls, submit jobs, report progress and results |
-| Notebooks | Call the same generation code during experimentation |
+Flask should submit the job and return its ID while generation continues in another process, following Flask’s background-task guidance. [Flask background tasks](https://flask.palletsprojects.com/en/stable/patterns/celery/).
 
-For your initial local application, I’d use **one GPU worker processing one generation job at a time**. That keeps model ownership and memory usage predictable. Flask submits a job and returns its ID while the worker generates the image or video. Flask’s documentation recommends sending long-running work to another process through a task queue. [Flask background-task documentation](https://flask.palletsprojects.com/en/stable/patterns/celery/)
+Save a snapshot of the resolved settings, model, LoRAs, actual seed, and input references with each job. Later settings edits should not alter an already queued job.
 
-You can initially run Flask and that worker from the **same `.venv`**. Separate processes don’t require separate environments. Add separate worker environments only if model families develop incompatible dependencies.
-
-I’d also replace the notebooks’ repeated `%pip install --upgrade ...` cells with centrally managed dependencies, keeping Jupyter tooling optional. This gives both the notebooks and Flask the same tested generation code.
-
-A GPU container can come later if you want to package more system dependencies. For now, a reproducible project environment, shared Python package, JSON model catalog, and dedicated GPU worker would give you a manageable foundation.
+I’d implement this incrementally: **catalog and settings resolution first, one SDXL workflow end to end next, then multiple LoRAs, FLUX, and WAN.** Keep the notebooks as clients of that same Python code so experiments and the Flask application use the same generation behavior.
