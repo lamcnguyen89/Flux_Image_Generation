@@ -8,5 +8,10 @@ and LoRA folders, SDXL/FLUX/WAN configurations, and reusable JSON examples.
 The application scaffold is in `src/image_generator/`. Each model family workflow
 is currently a TODO placeholder; generation is still explored in the notebooks.
 
+Catalog discovery, manifest validation, and settings resolution are implemented
+without GPU dependencies. Run `python scripts/inspect_catalog.py` to list models
+and LoRAs, or add `--json` to inspect their effective settings. See the
+[catalog guide](Documents/Catalog.md) for the Python API, override rules, and tests.
+
 See [environment setup](Documents/Setup.md) for the shared requirements, project
 virtual environment, GPU dependency setup, and validation commands.
