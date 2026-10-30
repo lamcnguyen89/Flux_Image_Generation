@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "lora_93a2a4e9-7c4e-428b-8be2-9a391e85ce4f",
+  "display_name": "MiniMax H3 Unlocked V2.1",
+  "description": "Local MiniMax H3 adapter selected by the MiniMax video notebook.",
+  "family": "minimax",
+  "adapter_type": "lora",
+  "source_url": null,
+  "source_model_id": null,
+  "source_version_id": null,
+  "weights": "../Minimax_H3_Unlocked_V2.1.safetensors",
+  "sha256": null,
+  "notes_file": "../../README.md",
+  "preview_image": null,
+  "compatibility": {
+    "model_variant": "minimax_h3",
+    "expert_target": null,
+    "trained_on": null,
+    "verified_checkpoint_ids": [],
+    "notes": "The local adapter targets H3 transformer blocks. All 200 LoRA target matrix shapes match the local checkpoint. This is a tensor-shape check only; full adapter inference has not been verified. Strength 1.0 follows the current notebook setting. Source details and required trigger words are not recorded locally."
+  },
+  "settings": {
+    "strength": 1.0,
+    "trigger_words": [],
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {}
+  }
+}

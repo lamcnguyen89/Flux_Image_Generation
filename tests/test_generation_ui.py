@@ -266,10 +266,16 @@ class GenerationUITests(unittest.TestCase):
             response.close()
         app = create_app({"TESTING": True, "CATALOG_ROOT": ROOT / "Models/Model_Families"})
         from image_generator.catalog import discover_catalog
+        from image_generator.workflows.registry import WORKFLOWS
         with app.test_client() as client:
             for model in discover_catalog(app.config["CATALOG_ROOT"]).models.values():
                 with self.subTest(model=model.id):
-                    self.assertEqual(client.get(f"/generate/{model.id}").status_code, 200)
+                    response = client.get(f"/generate/{model.id}")
+                    if model.defaults["workflow"] in WORKFLOWS:
+                        self.assertEqual(response.status_code, 200)
+                    else:
+                        self.assertEqual(response.status_code, 422)
+                        self.assertIn("Generation form unavailable", response.get_data(as_text=True))
 
 
 if __name__ == "__main__":
