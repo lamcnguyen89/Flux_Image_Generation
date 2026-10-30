@@ -31,8 +31,9 @@ resolving and validating the runtime together on the target machine.
 - `.python-version`: the selected Python minor version.
 - `pyproject.toml`: installs the package from `src/`; reads dependencies from
   `requirements.in` so package metadata shares the same declarations.
-- `scripts/setup.sh`: creates `.venv`, downloads ComfyUI if absent, installs all
-  family dependencies and the local package, then runs environment checks.
+- `scripts/setup.sh`: installs the system `python3.11-dev` package when missing,
+  then creates `.venv`, downloads ComfyUI if absent, installs all family
+  dependencies and the local package, and runs environment checks.
 - `scripts/check_environment.py`: checks imports, FFmpeg, CUDA, BF16, small matrix
   multiplications, PyTorch SDPA, and MiniMax's native ComfyUI node imports and
   sampler support. It does not download or load model weights.
@@ -106,11 +107,16 @@ bash scripts/setup.sh \
 Replace those paths with your installed interpreter and wheel files.
 `PYTHON_BIN`, `TORCH_WHEEL`, and `TORCHVISION_WHEEL` can also supply the overrides.
 
-To install optional development tools too, append `--dev`. Python packages install
-into the project's `.venv`; ComfyUI source installs into `build/ComfyUI`. Setup
-does not modify the original Conda environment or install operating-system
-packages. Git, JetPack, drivers, and required system libraries must already be
-available.
+Run setup as your normal user, without `sudo`; it refuses to install as root so
+project files remain owned by your user. Setup installs `python3.11-dev` through
+apt when it is missing, using `sudo` for that system package step only. The
+package manager must be available, and you may be prompted for your password.
+This package supplies development headers; a standalone Python 3.11 interpreter
+must already be installed as described above. To install optional development
+tools too, append `--dev`. Python packages install into the project's `.venv`; ComfyUI source
+installs into `build/ComfyUI`. Setup does not modify the original Conda
+environment. Git, JetPack, drivers, and other required system libraries must
+already be available.
 
 When `build/ComfyUI` is absent, setup fetches the official ComfyUI repository at
 revision `fd7639f477050e5c25b68fc38a9c2a6b6d988211`, which includes native H3

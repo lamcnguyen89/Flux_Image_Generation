@@ -22,7 +22,7 @@ Choose **Configure generation** to edit SDXL, FLUX, WAN, or MiniMax settings and
 the typed request. For a demo without weights or a GPU, run
 `IMAGE_GENERATOR_CATALOG_ROOT=tests/fixtures/model_families .venv/bin/python main.py`.
 See [generation UI testing](Documents/Generation_UI.md) for the workflow contract,
-fixture pages, and automated/manual checks. SDXL, WAN, and MiniMax support queue submission
+fixture pages, and automated/manual checks. SDXL, FLUX, WAN, and MiniMax support queue submission
 and live progress. WAN and MiniMax save uploaded sources and display playable MP4 results,
 conditioning images, and actual output details. The forms also save/reset model settings and shared adapter
 defaults, retain disabled LoRAs, and support checkpoint-specific strengths.
@@ -80,8 +80,10 @@ ComfyUI runtime, component requirements, fixture form, and silent MP4 outputs.
 The shared durable queue and worker lifecycle are implemented. Start a dedicated
 worker with `.venv/bin/python -m image_generator.worker`, or test two queued fake
 workflows producing small PNGs with `.venv/bin/python tests/demo_queue.py`.
-See [queue usage, recovery, and tests](Documents/Worker_Queue.md). SDXL, WAN, and MiniMax web forms
+See [queue usage, recovery, and tests](Documents/Worker_Queue.md). SDXL, FLUX, WAN, and MiniMax web forms
 submit jobs, show loading and denoising progress, and display saved images or videos.
+See [FLUX UI operation and validation](Documents/FLUX_UI_Execution.md) for image
+generation, guidance controls, and GPU validation.
 See [WAN UI operation and validation](Documents/WAN_UI_Execution.md) for uploads,
 video results, and a GPU smoke test.
 See [MiniMax UI operation and validation](Documents/MiniMax_UI_Execution.md) for

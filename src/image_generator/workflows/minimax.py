@@ -228,9 +228,11 @@ class MiniMaxWorkflow(Workflow):
             return source
         from huggingface_hub import hf_hub_download
 
+        # Keep the snapshot filename: resolving HF symlinks produces extensionless blobs,
+        # which ComfyUI misidentifies as pickle checkpoints instead of safetensors.
         return Path(hf_hub_download(repo_id=source["repo_id"], filename=source["filename"],
                                    cache_dir=str(self.cache_dir) if self.cache_dir is not None else None,
-                                   local_files_only=self.local_files_only, token=self._token)).resolve()
+                                   local_files_only=self.local_files_only, token=self._token))
 
     def _ensure_pipeline(self, checkpoint, vae, encoder):
         key = tuple(file_fingerprint(path) for path in (checkpoint, vae, encoder))

@@ -3,7 +3,8 @@
 SDXL forms can now submit real jobs to the durable queue. The dedicated worker
 reports loading, checkpoint reuse/switching, LoRA configuration, denoising steps,
 decoding, and saving. Jobs remain accessible after refreshing or leaving the page.
-FLUX, WAN, and MiniMax web forms retain their existing request-preview behavior.
+FLUX uses the same image generation UI; WAN and MiniMax support video submission.
+All forms also support request previews.
 
 ## Run with the actual GPU
 
@@ -19,11 +20,15 @@ web server and let the worker finish its active job before exiting. If either
 service exits unexpectedly, the launcher stops the other one as well. Stop any
 existing web server and worker before using the launcher.
 
-`--host` and `--port` configure the web server. `--database` and `--output-dir`
-configure both services together; defaults are `data/jobs.sqlite3` and `Images`.
+`--host` and `--port` configure the web server, overriding `IMAGE_GENERATOR_HOST`
+and `IMAGE_GENERATOR_PORT` from `.env`. Set `IMAGE_GENERATOR_HOSTNAME=imagegen`
+to publish `imagegen.local` through Avahi; see [local Wi-Fi setup](Web_Interface.md#local-wi-fi-hostname).
+`--database`, `--output-dir`, and `--video-output-dir`
+configure both services together; defaults are `data/jobs.sqlite3`, `Images`, and `Videos`.
 Relative paths resolve from the project root. The launcher reads `.env` and
 `.flaskenv` before starting either process and honors
-`IMAGE_GENERATOR_JOB_DATABASE`/`IMAGE_GENERATOR_JOB_OUTPUT_ROOT` unless overridden
+`IMAGE_GENERATOR_JOB_DATABASE`, `IMAGE_GENERATOR_JOB_OUTPUT_ROOT`, and
+`IMAGE_GENERATOR_JOB_VIDEO_OUTPUT_ROOT` unless overridden
 on the command line. Other arguments, including `--device`, `--dtype`, and
 `--local-files-only`, are passed to the worker. Omit `--dtype` to use each
 workflow's default precision when running a mixed-family queue.
@@ -92,12 +97,15 @@ Flask defaults match the worker defaults:
 | --- | --- | --- |
 | `JOB_DATABASE` | `data/jobs.sqlite3` | `--database` |
 | `JOB_OUTPUT_ROOT` | `Images` | `--output-dir` |
+| `JOB_VIDEO_OUTPUT_ROOT` | `Videos` | `--video-output-dir` |
 
 Each job's images and JSON metadata are saved in `Images/<job_id>/` by default.
+MiniMax and WAN videos, conditioning PNGs, and metadata use `Videos/<job_id>/`.
 
-Environment overrides use `IMAGE_GENERATOR_JOB_DATABASE` and
-`IMAGE_GENERATOR_JOB_OUTPUT_ROOT`. Point both processes at the same database and
-output directory. The application serves only registered output IDs whose files
+Environment overrides use `IMAGE_GENERATOR_JOB_DATABASE`,
+`IMAGE_GENERATOR_JOB_OUTPUT_ROOT`, and `IMAGE_GENERATOR_JOB_VIDEO_OUTPUT_ROOT`.
+Point both processes at the same database and output directories.
+The application serves only registered output IDs whose files
 resolve inside that job's configured output directory; missing or outside files
 return 404.
 

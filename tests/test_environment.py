@@ -174,6 +174,21 @@ class SetupInterpreterTests(unittest.TestCase):
         self.environment = os.environ.copy()
         for name in ("PYTHON_BIN", "TORCH_WHEEL", "TORCHVISION_WHEEL"):
             self.environment.pop(name, None)
+        fake_bin = self.root / "system-bin"
+        fake_bin.mkdir()
+        dpkg_query = fake_bin / "dpkg-query"
+        dpkg_query.write_text("#!/bin/sh\nprintf 'installed\\n'\n")
+        dpkg_query.chmod(0o755)
+        apt_get = fake_bin / "apt-get"
+        apt_get.write_text(
+            "#!/bin/sh\n"
+            f"printf '%s\\n' \"$*\" >> {str(self.root / 'apt-arguments.log')!r}\n"
+        )
+        apt_get.chmod(0o755)
+        sudo = fake_bin / "sudo"
+        sudo.write_text("#!/bin/sh\nexec \"$@\"\n")
+        sudo.chmod(0o755)
+        self.environment["PATH"] = f"{fake_bin}:{self.environment['PATH']}"
 
     def interpreter(self, prefix, base_prefix=None, simulate_install=False):
         executable = prefix / "bin/python"
@@ -277,6 +292,17 @@ class SetupInterpreterTests(unittest.TestCase):
         self.assertIn(str(self.root / "requirements.txt"), arguments)
         self.assertIn(str(self.comfyui / "requirements.txt"), arguments)
         self.assertEqual(arguments[arguments.index("-c") + 1], str(self.root / "requirements.txt"))
+
+    def test_setup_installs_python_dev_headers_when_missing(self):
+        dpkg_query = self.root / "system-bin/dpkg-query"
+        dpkg_query.write_text("#!/bin/sh\nexit 1\n")
+        python = self.interpreter(self.root / "standalone", simulate_install=True)
+        result = self.run_setup("--python", python)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            (self.root / "apt-arguments.log").read_text().splitlines(),
+            ["update", "install -y python3.11-dev"],
+        )
 
     def test_fresh_setup_fetches_pinned_comfyui_and_rerun_preserves_it(self):
         shutil.rmtree(self.comfyui)

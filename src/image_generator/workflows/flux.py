@@ -91,6 +91,21 @@ class FluxWorkflow(TransformerWorkflow):
                 "max_sequence_length", "num_images_per_prompt",
             )}
             generators = [self._torch.Generator(device=self.device).manual_seed(seed) for seed in seeds]
+            steps = settings["num_inference_steps"]
+            if getattr(self, "_progress_callback", None) is not None:
+                def on_step_end(pipeline, step, timestep, tensors):
+                    total = getattr(pipeline, "num_timesteps", steps)
+                    if type(total) is not int or total <= 0:
+                        total = steps
+                    current = min(step + 1, total)
+                    self.report_progress("denoising", current, total)
+                    if current == total:
+                        self.report_progress("decoding")
+                    return tensors
+
+                arguments["callback_on_step_end"] = on_step_end
+                arguments["callback_on_step_end_tensor_inputs"] = []
+            self.report_progress("denoising", 0, steps)
             self._synchronize()
             start = perf_counter()
             with self._torch.inference_mode():

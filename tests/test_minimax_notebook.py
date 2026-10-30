@@ -11,7 +11,7 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 NOTEBOOK = Path(__file__).resolve().parents[1] / "Models/Model_Families/MiniMax/MiniMax_Video_Gen.ipynb"
 
@@ -86,13 +86,58 @@ class MiniMaxNotebookTests(unittest.TestCase):
     def test_missing_text_encoder_can_be_downloaded_or_required_locally(self):
         self.validate()
         self.namespace["download_text_encoder"] = False
-        with self.assertRaisesRegex(FileNotFoundError, "text encoder"):
-            self.validate()
+        # Disabling downloads still permits a shared-cache lookup at resolution time.
+        self.validate()
         encoder = self.family / "text_encoders/local.safetensors"
         encoder.parent.mkdir(parents=True)
         encoder.touch()
         self.namespace["text_encoder_weights"] = "local.safetensors"
         self.validate()
+
+    def test_encoder_uses_ui_cache_with_downloads_enabled_or_disabled(self):
+        blob = self.root / "hub/blobs/encoder-hash"
+        blob.parent.mkdir(parents=True)
+        blob.touch()
+        encoder = self.root / "hub/snapshots/revision/text_encoders/encoder.safetensors"
+        encoder.parent.mkdir(parents=True)
+        encoder.symlink_to(blob)
+        for cache_location, expected_root in (
+            ("", self.root / "Models"),
+            ("Models/huggingface", self.root / "Models/huggingface"),
+            (str(self.root / "external-cache"), self.root / "external-cache"),
+            ("~/encoder-cache", Path.home() / "encoder-cache"),
+        ):
+            for download in (True, False):
+                with self.subTest(cache_location=cache_location, download=download):
+                    self.namespace["download_text_encoder"] = download
+                    downloader = Mock(return_value=str(encoder))
+                    dotenv = SimpleNamespace(load_dotenv=Mock())
+                    with patch.dict("os.environ", {"CACHE_LOCATION": cache_location,
+                                                  "HF_TOKEN": "fallback-token"}, clear=True), patch.dict(
+                        sys.modules, {"dotenv": dotenv,
+                                      "huggingface_hub": SimpleNamespace(hf_hub_download=downloader)}
+                    ), redirect_stdout(io.StringIO()):
+                        paths, _ = self.validate()
+                        resolved = self.namespace["resolve_text_encoder"](paths["text_encoder"])
+                    self.assertEqual(resolved, encoder)
+                    dotenv.load_dotenv.assert_called_once_with(self.root / ".env")
+                    downloader.assert_called_once_with(
+                        repo_id="Comfy-Org/MiniMax-H3",
+                        filename="text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+                        cache_dir=str(expected_root / "hub"), local_files_only=not download,
+                        token="fallback-token",
+                    )
+
+    def test_encoder_prefers_family_local_file_over_cache(self):
+        encoder = self.family / "text_encoders/local.safetensors"
+        encoder.parent.mkdir(parents=True)
+        encoder.touch()
+        downloader = Mock()
+        with patch.dict(sys.modules, {
+            "huggingface_hub": SimpleNamespace(hf_hub_download=downloader)
+        }):
+            self.assertEqual(self.namespace["resolve_text_encoder"](encoder), encoder)
+        downloader.assert_not_called()
 
     def test_custom_missing_encoder_is_not_downloaded_from_arbitrary_path(self):
         self.namespace["text_encoder_weights"] = "../custom.safetensors"

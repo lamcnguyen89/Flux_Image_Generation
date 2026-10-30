@@ -38,13 +38,15 @@ class Worker:
     holder can recover running jobs. Factory injection is for tests, not job data.
     """
 
-    def __init__(self, store: JobStore, output_dir: str | Path, *, workflow_factory=None,
+    def __init__(self, store: JobStore, output_dir: str | Path, *, video_output_dir: str | Path = PROJECT_ROOT / "Videos",
+                 workflow_factory=None,
                  runtime_options=None, poll_interval=0.5, heartbeat_interval=2.0):
         if any(type(value) not in (int, float) or not math.isfinite(value) or value <= 0
                for value in (poll_interval, heartbeat_interval)):
             raise ValueError("Worker poll and heartbeat intervals must be positive")
         self.store = store
         self.output_dir = Path(output_dir).expanduser().resolve()
+        self.video_output_dir = Path(video_output_dir).expanduser().resolve()
         self.workflow_factory = workflow_factory or create_workflow
         self.runtime_options = deepcopy(runtime_options or {})
         self.poll_interval, self.heartbeat_interval = poll_interval, heartbeat_interval
@@ -171,7 +173,8 @@ class Worker:
                     self._check_health()
                     save_stage = "encoding_video" if batch.videos else "saving"
                     self.store._progress(job.id, self.id, save_stage, count)
-                    directory = self.output_dir / job.id
+                    root = self.video_output_dir if batch.videos else self.output_dir
+                    directory = root / job.id
                     if directory.is_symlink():
                         raise ValueError("Job output directory must not be a symlink")
                     saved = save_batch(batch, directory)
@@ -254,6 +257,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", type=Path, default=PROJECT_ROOT / "data/jobs.sqlite3")
     parser.add_argument("--output-dir", type=Path, default=PROJECT_ROOT / "Images")
+    parser.add_argument("--video-output-dir", type=Path, help="Video output root (default: Videos)")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--once", action="store_true", help="process at most one job, then exit")
     mode.add_argument("--drain", action="store_true", help="exit when no queued jobs remain")
@@ -282,7 +286,9 @@ def main(argv=None):
                    "token": os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_TOKEN") or None}
         runtime_options = {name: dict(options) for name in WORKFLOWS}
         runtime_options["minimax"]["comfyui_dir"] = args.comfyui_dir
-        worker = Worker(JobStore(args.database), args.output_dir, runtime_options=runtime_options,
+        video_output_dir = args.video_output_dir or os.getenv("IMAGE_GENERATOR_JOB_VIDEO_OUTPUT_ROOT") or PROJECT_ROOT / "Videos"
+        worker = Worker(JobStore(args.database), args.output_dir, video_output_dir=video_output_dir,
+                        runtime_options=runtime_options,
                         poll_interval=args.poll_interval, heartbeat_interval=args.heartbeat_interval)
         previous = {number: signal.getsignal(number) for number in (signal.SIGINT, signal.SIGTERM)}
         try:

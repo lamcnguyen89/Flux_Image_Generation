@@ -144,14 +144,19 @@ def job_payload(job):
 
 def output_path(job, path):
     """Constrain reads, including metadata reads, to this job's output directory."""
-    root = Path(current_app.config["JOB_OUTPUT_ROOT"]).expanduser().resolve()
-    directory = (root / job.id).resolve()
     if path is None:
         return None
     path = path.resolve()
-    if not directory.is_relative_to(root) or not path.is_relative_to(directory) or not path.is_file():
-        return None
-    return path
+    roots = [current_app.config["JOB_OUTPUT_ROOT"]]
+    if job.workflow in {"minimax", "wan"}:
+        # Keep previously registered videos in Images accessible as well.
+        roots.insert(0, current_app.config["JOB_VIDEO_OUTPUT_ROOT"])
+    for root in roots:
+        root = Path(root).expanduser().resolve()
+        directory = (root / job.id).resolve()
+        if directory.is_relative_to(root) and path.is_relative_to(directory) and path.is_file():
+            return path
+    return None
 
 
 @jobs_bp.get("/jobs/<job_id>/source")

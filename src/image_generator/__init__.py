@@ -18,6 +18,7 @@ def create_app(config=None):
         CATALOG_ROOT=Path(__file__).resolve().parents[2] / "Models/Model_Families",
         JOB_DATABASE=Path(__file__).resolve().parents[2] / "data/jobs.sqlite3",
         JOB_OUTPUT_ROOT=Path(__file__).resolve().parents[2] / "Images",
+        JOB_VIDEO_OUTPUT_ROOT=Path(__file__).resolve().parents[2] / "Videos",
         JOB_INPUT_ROOT=Path(__file__).resolve().parents[2] / "data/inputs",
         MAX_CONTENT_LENGTH=24 * 1024 * 1024,
         INPUT_MAX_BYTES=20 * 1024 * 1024,

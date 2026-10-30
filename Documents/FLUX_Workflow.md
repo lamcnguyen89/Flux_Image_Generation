@@ -93,7 +93,8 @@ For repeated serialized requests, retain a `FluxWorkflow` instance, call
 `generate(request)`, save the returned batch with `save_batch()`, and close the
 workflow in `finally`. A changed model or transformer file fingerprint reloads
 the pipeline. API callers supply cache/token options explicitly; the runners
-handle `.env` configuration. Flask remains read-only and queueing is separate.
+handle `.env` configuration. The web form can submit the same requests to the
+dedicated worker; see [FLUX web execution](FLUX_UI_Execution.md).
 
 ## Verification
 

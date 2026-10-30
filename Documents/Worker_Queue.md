@@ -2,8 +2,9 @@
 
 This is the first execution-infrastructure stage. It adds a workflow-independent
 SQLite queue, executable request snapshots, and a dedicated single-worker process.
-SDXL web forms now submit jobs and expose loading/denoising progress and results.
-See [SDXL web execution](SDXL_UI_Execution.md). Other families retain form previews.
+SDXL and FLUX web forms submit image jobs; WAN and MiniMax forms submit video jobs.
+All expose loading/denoising progress and saved results. See
+[SDXL web execution](SDXL_UI_Execution.md) and [FLUX web execution](FLUX_UI_Execution.md).
 
 ## Test it without a GPU
 
@@ -77,14 +78,16 @@ In a separate terminal/process:
 .venv/bin/python -m image_generator.worker
 ```
 
-Defaults are `data/jobs.sqlite3` and `Images/<job_id>/`. Each job's images and
-JSON metadata are grouped in its own directory. Options include:
+Defaults are `data/jobs.sqlite3`, `Images/<job_id>/` for images, and
+`Videos/<job_id>/` for videos. Each job's media, conditioning PNG, and JSON
+metadata are grouped in its own directory. Options include:
 
 ```bash
 .venv/bin/python -m image_generator.worker --once
 .venv/bin/python -m image_generator.worker --drain
 .venv/bin/python -m image_generator.worker \
-  --database /path/to/jobs.sqlite3 --output-dir /path/to/outputs \
+  --database /path/to/jobs.sqlite3 --output-dir /path/to/images \
+  --video-output-dir /path/to/videos \
   --device cuda:0 --local-files-only
 ```
 
@@ -96,6 +99,10 @@ workflow. This stage does not provide active-job cancellation.
 Runtime cache/token handling follows the existing CLIs: project `.env`,
 `CACHE_LOCATION`, `HUGGINGFACE_TOKEN`/`HF_TOKEN`, and optional `--cache-dir`.
 Runtime options stay in worker memory rather than job rows or output metadata.
+The video root can also be set with `IMAGE_GENERATOR_JOB_VIDEO_OUTPUT_ROOT`;
+`--video-output-dir` takes precedence. Configure the web server to use the same
+video root for playback and downloads. The launcher shares this setting between
+both processes automatically.
 `--dtype` and `--comfyui-dir` are available; MiniMax's existing restriction to
 checkpoint-managed precision still applies, so omit `--dtype` for mixed queues.
 
@@ -104,7 +111,7 @@ The library also supports explicit lifecycle control and per-workflow options:
 ```python
 from image_generator.worker import Worker
 
-with Worker(store, "Images", runtime_options={
+with Worker(store, "Images", video_output_dir="Videos", runtime_options={
     "sdxl": {"device": "cuda:0", "local_files_only": True},
     "minimax": {"comfyui_dir": "build/ComfyUI", "local_files_only": True},
 }) as worker:
@@ -153,11 +160,11 @@ An old heartbeat does not authorize taking ownership from a live worker. Heartbe
 failure stops further claiming; active work checks worker health between batches.
 
 Shared stages include `validating`, `preparing`, `generating`, and `saving`, followed
-by the terminal state. SDXL reports additional model, adapter, denoising, and
+by the terminal state. SDXL and FLUX report additional model, adapter, denoising, and
 decoding stages through the shared `WorkflowProgress` callback interface. Counts
 are stage-specific: denoising timesteps, adapter counts, or saved outputs.
 The worker detaches observers after every job, throttles fast progress updates,
-and persists stage history. Other families may add their own progress observers.
+and persists stage history. WAN and MiniMax also report video-specific stages.
 A job can complete only after at least one output has been saved and recorded.
 
 Database schema version 1 migrates automatically to version 2, adding stage events

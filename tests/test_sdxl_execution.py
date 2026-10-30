@@ -263,12 +263,15 @@ class SDXLExecutionTests(unittest.TestCase):
         with patch("image_generator.jobs.JobStore.list_jobs", side_effect=sqlite3.OperationalError("database busy")):
             self.assertEqual(self.client.get("/jobs").status_code, 503)
 
-    def test_flux_remains_preview_only(self):
+    def test_flux_exposes_the_same_image_generation_action(self):
         response = self.client.get("/generate/fixture-flux")
-        self.assertNotIn('value="generate"', response.get_data(as_text=True))
+        self.assertIn('value="generate"', response.get_data(as_text=True))
+        self.assertIn("Generate images", response.get_data(as_text=True))
         data = FormPage(response.get_data(as_text=True)).data()
         data["action"] = "generate"
-        self.assertEqual(self.client.post("/generate/fixture-flux", data=data).status_code, 400)
+        # Missing fixture assets must fail validation before any GPU work.
+        data["prompt"] = "A mountain lake"
+        self.assertEqual(self.client.post("/generate/fixture-flux", data=data).status_code, 422)
         self.assertEqual(self.store.list_jobs(), ())
 
     def test_results_do_not_depend_on_live_catalog_and_output_paths_are_confined(self):

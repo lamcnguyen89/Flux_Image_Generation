@@ -12,6 +12,8 @@ from threading import Event
 import time
 import unittest
 
+import dotenv
+
 
 ROOT = Path(__file__).resolve().parents[1]
 START = ROOT / "scripts/start.sh"
@@ -39,6 +41,7 @@ signal.signal(signal.SIGTERM, stop)
     'argv': sys.argv[1:], 'cwd': str(Path.cwd()),
     'database': os.environ.get('IMAGE_GENERATOR_JOB_DATABASE'),
     'outputs': os.environ.get('IMAGE_GENERATOR_JOB_OUTPUT_ROOT'),
+    'video_outputs': os.environ.get('IMAGE_GENERATOR_JOB_VIDEO_OUTPUT_ROOT'),
 }))
 (root / (name + '.ready')).write_text(str(os.getpid()))
 deadline = time.monotonic() + 10
@@ -65,13 +68,23 @@ class StartTests(unittest.TestCase):
         # Exercise the complete shell entry point with isolated CPU-only services.
         flask = self.root / "fakes/flask"
         flask.mkdir(parents=True)
+        shutil.copytree(Path(dotenv.__file__).parent, self.root / "fakes/dotenv")
         (flask / "__init__.py").write_text("")
-        (flask / "cli.py").write_text("def load_dotenv(): pass\n")
+        (flask / "cli.py").write_text(
+            "def load_dotenv():\n"
+            "    from dotenv import load_dotenv\n"
+            "    load_dotenv('.env')\n"
+        )
         (flask / "__main__.py").write_text("name = 'web'\n" + SERVICE)
         worker = self.root / "src/image_generator"
         worker.mkdir(parents=True)
         (worker / "__init__.py").write_text("")
         (worker / "worker.py").write_text("name = 'worker'\n" + SERVICE)
+        self.bin = self.root / "bin"
+        self.bin.mkdir()
+        publisher = self.bin / "avahi-publish-address"
+        publisher.write_text(f"#!{sys.executable}\nname = 'hostname'\n" + SERVICE)
+        publisher.chmod(0o755)
 
     def wait_ready(self, names, process):
         deadline = time.monotonic() + 5
@@ -83,15 +96,19 @@ class StartTests(unittest.TestCase):
             Event().wait(0.01)
         self.fail("Timed out waiting for child services")
 
-    def start(self, *, wait_for=("web", "worker"), fail_worker=False):
+    def start(self, *, wait_for=("web", "worker"), fail_worker=False, arguments=()):
         environment = os.environ.copy()
+        for key in ("IMAGE_GENERATOR_HOSTNAME", "IMAGE_GENERATOR_HOST", "IMAGE_GENERATOR_PORT",
+                    "IMAGE_GENERATOR_JOB_VIDEO_OUTPUT_ROOT"):
+            environment.pop(key, None)
+        environment["PATH"] = str(self.bin) + os.pathsep + environment.get("PATH", "")
         environment["PYTHONPATH"] = str(self.root / "fakes")
         environment["LAUNCHER_TEST_ROOT"] = str(self.root)
         if fail_worker:
             environment["LAUNCHER_TEST_FAIL_WORKER"] = "1"
         process = subprocess.Popen(["bash", str(self.launcher), "--database", str(self.root / "queue.sqlite3"),
                                     "--output-dir", str(self.root / "generated images"),
-                                    "--device", "cuda:3", "--dtype", "float32"],
+                                    "--device", "cuda:3", "--dtype", "float32", *arguments],
                                    cwd="/tmp", env=environment, start_new_session=True,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         self.addCleanup(self.close, process)
@@ -119,7 +136,10 @@ class StartTests(unittest.TestCase):
             settings = json.loads((self.root / f"{name}.arguments").read_text())
             self.assertEqual(settings["database"], str(self.root / "queue.sqlite3"))
             self.assertEqual(settings["outputs"], str(self.root / "generated images"))
+            self.assertEqual(settings["video_outputs"], str(self.root / "Videos"))
             self.assertEqual(settings["cwd"], str(self.root))
+        self.assertEqual(settings["argv"][settings["argv"].index("--video-output-dir") + 1],
+                         str(self.root / "Videos"))
         self.assertEqual(settings["argv"][-4:], ["--device", "cuda:3", "--dtype", "float32"])
         process.send_signal(signal.SIGINT)
         stdout, stderr = process.communicate(timeout=5)
@@ -128,6 +148,24 @@ class StartTests(unittest.TestCase):
         for name in ("web", "worker"):
             self.assertTrue((self.root / f"{name}.finished").is_file())
             self.assert_reaped(name)
+
+    def test_video_output_setting_is_shared_from_dotenv(self):
+        (self.root / ".env").write_text("IMAGE_GENERATOR_JOB_VIDEO_OUTPUT_ROOT=custom videos\n")
+        self.start()
+        for name in ("web", "worker"):
+            settings = json.loads((self.root / f"{name}.arguments").read_text())
+            self.assertEqual(settings["video_outputs"], str(self.root / "custom videos"))
+        self.assertEqual(settings["argv"][settings["argv"].index("--video-output-dir") + 1],
+                         str(self.root / "custom videos"))
+
+    def test_video_output_option_overrides_dotenv_for_both_services(self):
+        (self.root / ".env").write_text("IMAGE_GENERATOR_JOB_VIDEO_OUTPUT_ROOT=custom videos\n")
+        self.start(arguments=("--video-output-dir", "selected videos"))
+        for name in ("web", "worker"):
+            settings = json.loads((self.root / f"{name}.arguments").read_text())
+            self.assertEqual(settings["video_outputs"], str(self.root / "selected videos"))
+        self.assertEqual(settings["argv"][settings["argv"].index("--video-output-dir") + 1],
+                         str(self.root / "selected videos"))
 
     def test_service_failure_stops_companion_and_preserves_failure_status(self):
         process = self.start()
@@ -146,6 +184,80 @@ class StartTests(unittest.TestCase):
         self.assertIn("Generation worker exited", stderr)
         self.assertTrue((self.root / "web.finished").is_file())
         self.assert_reaped("web")
+
+
+    def test_dotenv_hostname_and_port_publish_alias_until_shutdown(self):
+        (self.root / ".env").write_text(
+            "IMAGE_GENERATOR_HOSTNAME=My-Images\n"
+            "IMAGE_GENERATOR_HOST=192.168.1.42\n"
+            "IMAGE_GENERATOR_PORT=5050\n"
+        )
+        process = self.start(wait_for=("hostname", "web", "worker"))
+        publisher = json.loads((self.root / "hostname.arguments").read_text())
+        self.assertEqual(publisher["argv"], ["--no-reverse", "my-images.local", "192.168.1.42"])
+        web = json.loads((self.root / "web.arguments").read_text())["argv"]
+        self.assertEqual(web[web.index("--host") + 1], "192.168.1.42")
+        self.assertEqual(web[web.index("--port") + 1], "5050")
+        process.send_signal(signal.SIGINT)
+        stdout, stderr = process.communicate(timeout=5)
+        self.assertEqual(process.returncode, 130, stderr)
+        self.assertIn("http://my-images.local:5050", stdout)
+        self.assertTrue((self.root / "hostname.finished").is_file())
+        for name in ("hostname", "web", "worker"):
+            self.assert_reaped(name)
+
+    def test_command_line_overrides_dotenv_and_local_suffix_is_not_duplicated(self):
+        (self.root / ".env").write_text(
+            "IMAGE_GENERATOR_HOSTNAME=imagegen.local\n"
+            "IMAGE_GENERATOR_HOST=127.0.0.1\n"
+            "IMAGE_GENERATOR_PORT=invalid\n"
+        )
+        process = self.start(wait_for=("hostname", "web", "worker"),
+                             arguments=("--host", "192.168.1.43", "--port", "6000"))
+        publisher = json.loads((self.root / "hostname.arguments").read_text())
+        self.assertEqual(publisher["argv"], ["--no-reverse", "imagegen.local", "192.168.1.43"])
+        web = json.loads((self.root / "web.arguments").read_text())["argv"]
+        self.assertEqual(web[web.index("--host") + 1], "192.168.1.43")
+        self.assertEqual(web[web.index("--port") + 1], "6000")
+
+    def test_no_hostname_keeps_local_defaults_and_does_not_start_publisher(self):
+        self.start()
+        self.assertFalse((self.root / "hostname.ready").exists())
+        web = json.loads((self.root / "web.arguments").read_text())["argv"]
+        self.assertEqual(web[web.index("--host") + 1], "127.0.0.1")
+        self.assertEqual(web[web.index("--port") + 1], "5000")
+
+    def test_invalid_hostname_port_and_loopback_fail_before_starting_services(self):
+        for setting, message in (
+            ("IMAGE_GENERATOR_HOSTNAME=imagegen.local:5000", "without http:// or a port"),
+            ("IMAGE_GENERATOR_HOSTNAME=http://imagegen", "without http:// or a port"),
+            ("IMAGE_GENERATOR_PORT=abc", "must be an integer"),
+            ("IMAGE_GENERATOR_PORT=65536", "must be between"),
+            ("IMAGE_GENERATOR_PORT=0", "must be between"),
+            ("IMAGE_GENERATOR_HOSTNAME=imagegen\nIMAGE_GENERATOR_HOST=127.0.0.1", "LAN IPv4 address"),
+        ):
+            with self.subTest(setting=setting):
+                (self.root / ".env").write_text(setting + "\n")
+                process = self.start(wait_for=())
+                stdout, stderr = process.communicate(timeout=5)
+                self.assertEqual(process.returncode, 2, stderr)
+                self.assertIn(message, stderr)
+                for name in ("hostname", "web", "worker"):
+                    self.assertFalse((self.root / f"{name}.ready").exists())
+
+    def test_hostname_publisher_failure_stops_both_services(self):
+        (self.root / ".env").write_text(
+            "IMAGE_GENERATOR_HOSTNAME=imagegen\nIMAGE_GENERATOR_HOST=192.168.1.42\n"
+        )
+        process = self.start(wait_for=("hostname", "web", "worker"))
+        (self.root / "hostname.exit").write_text("1")
+        stdout, stderr = process.communicate(timeout=5)
+        self.assertEqual(process.returncode, 1, stderr)
+        self.assertIn("Local hostname exited", stderr)
+        for name in ("web", "worker"):
+            self.assertTrue((self.root / f"{name}.finished").is_file())
+        for name in ("hostname", "web", "worker"):
+            self.assert_reaped(name)
 
 
 if __name__ == "__main__":

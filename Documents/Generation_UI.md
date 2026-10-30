@@ -6,10 +6,11 @@ image-to-video. It uses
 the existing Flask/Jinja application and model catalog. No GPU, model downloads,
 or weight files are required to render or preview a form.
 
-SDXL supports **Generate images**; WAN and MiniMax support **Generate video**
+SDXL and FLUX support **Generate images**; WAN and MiniMax support **Generate video**
 with managed source uploads, live job progress, and saved results through the
 durable worker. See [SDXL execution](SDXL_UI_Execution.md) for
-the two-process startup, model reuse/switching, and LoRA-reset checks. Fixture
+the two-process startup, model reuse/switching, and LoRA-reset checks. See
+[FLUX execution](FLUX_UI_Execution.md) for its guidance controls and image results. Fixture
 manifests are preview-only unless tests supply fake weights and a mocked runtime.
 
 ## Try the fixture library

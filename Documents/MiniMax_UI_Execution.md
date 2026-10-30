@@ -56,8 +56,9 @@ frame count, 24 FPS, duration, actual seed, and silent audio status from metadat
 Earlier variations remain accessible if a later one fails. Output routes are
 confined to the associated job's registered files.
 
-Web jobs write MP4/PNG/JSON files under `JOB_OUTPUT_ROOT` (`Images/<job_id>/` by
-default). The standalone MiniMax runner defaults to `Videos/`.
+Web jobs write MP4/PNG/JSON files under `JOB_VIDEO_OUTPUT_ROOT` (`Videos/<job_id>/`
+by default). The standalone MiniMax runner also defaults to `Videos/`. Previously
+saved web videos under `Images/<job_id>/` remain playable and downloadable.
 
 ## Verification
 

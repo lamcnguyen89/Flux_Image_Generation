@@ -287,6 +287,28 @@ class MiniMaxTests(MiniMaxFixture, unittest.TestCase):
         self.assertTrue(download.call_args.kwargs["local_files_only"])
         self.assertEqual(download.call_args.kwargs["token"], "private-token")
 
+    def test_cached_encoder_snapshot_symlink_reaches_native_loader(self):
+        # HF snapshots retain the format suffix; their blob targets do not.
+        cache = self.root / "hub/models--Comfy-Org--MiniMax-H3"
+        blob = cache / "blobs/encoder-hash"
+        blob.parent.mkdir(parents=True)
+        blob.write_bytes(b"fake encoder")
+        filename = "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
+        snapshot = cache / "snapshots/revision" / filename
+        snapshot.parent.mkdir(parents=True)
+        snapshot.symlink_to(blob)
+        self.model["components"]["text_encoder"] = {
+            "repo_id": "Comfy-Org/MiniMax-H3", "filename": filename,
+        }
+        self.write(self.model_path, self.model)
+        downloader = Mock(return_value=str(snapshot))
+        with patch.dict(sys.modules, {
+            "huggingface_hub": SimpleNamespace(hf_hub_download=downloader)
+        }):
+            self.workflow.generate(self.request())
+        self.runtime.sd.load_clip.assert_called_once_with([str(snapshot)], clip_type="minimax")
+        self.assertNotEqual(snapshot, snapshot.resolve())
+
     def test_missing_native_runtime_fails_with_setup_instructions(self):
         workflow = MiniMaxWorkflow(comfyui_dir=self.root / "not-installed")
         with self.assertRaisesRegex(RuntimeError, "native H3 support"):

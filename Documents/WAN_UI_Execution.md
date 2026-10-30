@@ -55,9 +55,10 @@ conditioning PNG, the seed, actual output dimensions, frame count, FPS, duration
 and JSON metadata. Previously saved videos remain available if a later variation
 fails. Polling appends new results without rebuilding existing video players.
 
-Queued outputs use `JOB_OUTPUT_ROOT` (project `Images/<job_id>/` by default),
+Queued outputs use `JOB_VIDEO_OUTPUT_ROOT` (project `Videos/<job_id>/` by default),
 including MP4, conditioning PNG, and JSON files. The standalone WAN CLI continues
-to default to `Videos/`.
+to default to `Videos/`. Previously saved web videos under `Images/<job_id>/`
+remain playable and downloadable.
 
 ## Validation
 

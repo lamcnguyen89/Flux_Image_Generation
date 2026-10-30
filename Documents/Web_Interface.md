@@ -10,6 +10,46 @@ This starts the web server and generation worker together using `.venv`. Logs
 appear in the same terminal. Ctrl+C stops both, allowing active generation to
 finish. See [launcher options and GPU testing](SDXL_UI_Execution.md).
 
+## Local Wi-Fi hostname
+
+Set these values in the project's `.env` file:
+
+```dotenv
+IMAGE_GENERATOR_HOSTNAME=imagegen
+IMAGE_GENERATOR_PORT=5000
+IMAGE_GENERATOR_HOST=0.0.0.0
+```
+
+Restart with `bash scripts/start.sh`, then open **http://imagegen.local:5000**
+from a device on the same local network. Enter just `imagegen` in the hostname
+setting; the launcher appends `.local`. An existing `.local` suffix is also
+accepted. Keep the port separate, and do not put `http://` or `:5000` in the
+hostname. Changing the name does not rename your computer.
+
+The launcher publishes the alias through Avahi while it runs and removes it
+when stopped. On Ubuntu, install the system tools if needed:
+
+```bash
+sudo apt install avahi-utils avahi-daemon
+sudo systemctl enable --now avahi-daemon
+```
+
+Clients must support mDNS, and the Wi-Fi network must allow communication and
+multicast between devices. If a firewall is enabled, it must allow the web port
+and mDNS traffic on the local network. No router port forwarding is needed.
+The alias uses the IPv4 address selected by the system's multicast route. If
+you have multiple network interfaces, set `IMAGE_GENERATOR_HOST` to the desired
+LAN IPv4 address instead of `0.0.0.0`. Restart after the server's IP changes.
+A duplicate hostname or unavailable Avahi daemon causes the launcher to stop
+with an error; choose a unique name or start Avahi before retrying.
+
+`--host` and `--port` override the corresponding `.env` settings. Environment
+variables already set in the shell take precedence over `.env`. Leave
+`IMAGE_GENERATOR_HOSTNAME` empty to disable alias publishing. Without a hostname
+or explicit listening address, the launcher defaults to `127.0.0.1`; the default
+port is `5000`. The hostname settings apply to `scripts/start.sh`; starting only
+the web server with `main.py` does not publish an alias.
+
 To start only the web server:
 
 ```bash
@@ -33,7 +73,7 @@ factory CLI:
   and manifest paths. Values retain JSON types: `null`, `false`, lists, and
   nested objects remain distinguishable.
 - `/generate/<model_id>` renders the workflow's editable form. POST previews
-  typed settings and reports errors without saving settings. SDXL forms
+  typed settings and reports errors without saving settings. SDXL and FLUX forms
   submit jobs through **Generate images**; WAN and MiniMax forms use **Generate
   video** with a source-image upload. All execute on the dedicated worker.
   See [generation forms](Generation_UI.md) for fixture startup and testing.
@@ -41,7 +81,7 @@ factory CLI:
   history, errors, and saved outputs. `/api/jobs/<job_id>` supplies polling data.
 
 The catalog and saved-settings pages support GET and HEAD; writes to those
-routes return 405. Generation forms support GET, HEAD, POST previews, and SDXL/WAN/MiniMax
+routes return 405. Generation forms support GET, HEAD, POST previews, and SDXL/FLUX/WAN/MiniMax
 queue submissions. Browsing never loads weights or queues jobs. Catalog browsing keeps workflow
 imports lazy; generation forms import only lightweight definitions and validation.
 Catalog loading creates missing defaults/user JSON files using

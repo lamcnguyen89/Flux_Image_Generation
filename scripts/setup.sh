@@ -31,6 +31,8 @@ Usage: bash scripts/setup.sh [options]
 The initial dependency baseline targets Linux aarch64 / Jetson Thor.
 Creates one shared .venv for SDXL, FLUX, WAN, and MiniMax H3.
 Downloads ComfyUI to build/ComfyUI when absent; preserves existing checkouts.
+Run as your normal user; running setup as root is refused.
+Installs python3.11-dev through apt when missing; may require sudo.
 Install Python 3.11 outside Conda first; see Documents/Setup.md.
 Downloads the pinned torch and torchvision CUDA 13.2 wheels from PyTorch by default.
 Wheel overrides must match requirements.txt. No FlashAttention is installed.
@@ -40,6 +42,26 @@ USAGE
 fail() {
     printf 'Setup error: %s\n' "$*" >&2
     exit 1
+}
+
+install_python_dev_headers() {
+    if command -v dpkg-query >/dev/null 2>&1 \
+        && dpkg-query -W -f='${db:Status-Status}' python3.11-dev 2>/dev/null | grep -qx installed; then
+        return
+    fi
+
+    command -v apt-get >/dev/null 2>&1 \
+        || fail "Installing python3.11-dev requires apt-get on this system."
+
+    local -a privilege=()
+    if ((EUID != 0)); then
+        command -v sudo >/dev/null 2>&1 \
+            || fail "Root privileges or sudo are required to install python3.11-dev."
+        privilege=(sudo)
+    fi
+
+    "${privilege[@]}" apt-get update
+    "${privilege[@]}" apt-get install -y python3.11-dev
 }
 
 while (($#)); do
@@ -61,6 +83,10 @@ while (($#)); do
         *) fail "Unknown option: $1. Use --help for usage." ;;
     esac
 done
+
+if ((EUID == 0)); then
+    fail "Do not run setup as root or with sudo. Run: bash scripts/setup.sh. Setup uses sudo only when installing the system python3.11-dev package."
+fi
 
 if [[ ! -e "$comfyui_dir" ]]; then
     command -v git >/dev/null 2>&1 || fail "Git is required to download MiniMax's ComfyUI runtime."
@@ -123,6 +149,8 @@ for package in torch torchvision; do
     esac
     wheel_sources+=("$wheel_source")
 done
+
+install_python_dev_headers
 
 if [[ ! -x "$venv_python" ]]; then
     "$python_bin" -m venv "$venv_dir"

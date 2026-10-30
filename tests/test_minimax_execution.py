@@ -23,9 +23,11 @@ class MiniMaxExecutionTests(MiniMaxFixture, unittest.TestCase):
     def setUp(self):
         super().setUp()
         self.inputs, self.outputs = self.root / "inputs", self.root / "outputs"
+        self.videos = self.root / "Videos"
         self.config = {"TESTING": True, "CATALOG_ROOT": self.root,
                        "JOB_DATABASE": self.root / "jobs.sqlite3", "SECRET_KEY": "minimax-tests",
-                       "JOB_INPUT_ROOT": self.inputs, "JOB_OUTPUT_ROOT": self.outputs}
+                       "JOB_INPUT_ROOT": self.inputs, "JOB_OUTPUT_ROOT": self.outputs,
+                       "JOB_VIDEO_OUTPUT_ROOT": self.videos}
         self.app = create_app(self.config)
         self.client = self.app.test_client()
         self.store = JobStore(self.config["JOB_DATABASE"])
@@ -73,8 +75,9 @@ class MiniMaxExecutionTests(MiniMaxFixture, unittest.TestCase):
         self.assertEqual(response.status_code, 303, response.get_data(as_text=True))
         return response.location.rsplit("/", 1)[1]
 
-    def run_worker(self):
-        Worker(self.store, self.outputs).run(until_idle=True)
+    def run_worker(self, **options):
+        options.setdefault("video_output_dir", self.videos)
+        Worker(self.store, self.outputs, **options).run(until_idle=True)
 
     def staged_files(self):
         return list(self.inputs.glob("*/source.*"))
@@ -164,6 +167,10 @@ class MiniMaxExecutionTests(MiniMaxFixture, unittest.TestCase):
         self.run_worker()
         result = self.client.get(f"/api/jobs/{identifier}").json
         self.assertEqual(result["status"], "completed")
+        record = self.store.get(identifier).outputs[0]
+        for path in (record.file_path, record.metadata_path, record.conditioning_path):
+            self.assertEqual(path.parent, self.videos / identifier)
+        self.assertFalse((self.outputs / identifier).exists())
         output = result["outputs"][0]
         self.assertEqual((output["width"], output["height"], output["frame_count"], output["fps"]), (32, 32, 5, 24))
         self.assertAlmostEqual(output["duration_seconds"], 5 / 24)
@@ -191,6 +198,17 @@ class MiniMaxExecutionTests(MiniMaxFixture, unittest.TestCase):
         for text in ("<video", "controls playsinline", "32 × 32", "24 FPS", "Silent video",
                      "Uploaded source", "Exact conditioning image"):
             self.assertIn(text, html)
+
+    def test_existing_videos_in_image_output_root_remain_downloadable(self):
+        identifier = self.submit()
+        self.run_worker(video_output_dir=self.outputs)
+        result = self.client.get(f"/api/jobs/{identifier}").json
+        self.assertEqual(result["status"], "completed")
+        output = result["outputs"][0]
+        for key in ("download_url", "metadata_url", "conditioning_url"):
+            response = self.client.get(output[key])
+            self.assertEqual(response.status_code, 200)
+            response.close()
 
     def test_progress_is_visible_mid_sampling_with_previous_variation_playable(self):
         identifier = self.submit(num_videos_per_prompt="2")

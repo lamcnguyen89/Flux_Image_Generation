@@ -54,6 +54,7 @@ class WorkerTests(unittest.TestCase):
     def test_fake_images_complete_with_metadata_progress_and_persisted_outputs(self):
         queued = self.enqueue()
         with self.worker() as worker:
+            self.assertEqual(worker.video_output_dir, ROOT / "Videos")
             completed = worker.run_once()
             self.assertEqual(completed.id, queued.id)
             self.assertEqual(completed.status, "completed")

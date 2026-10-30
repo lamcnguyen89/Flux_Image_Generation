@@ -58,8 +58,10 @@ class WanExecutionTests(unittest.TestCase):
             if asset.family == "wan":
                 asset.asset_paths["weights"].write_bytes(b"synthetic adapter")
         self.inputs, self.outputs, self.database = self.root / "inputs", self.root / "outputs", self.root / "jobs.sqlite3"
+        self.videos = self.root / "Videos"
         self.config = {"TESTING": True, "CATALOG_ROOT": self.catalog, "JOB_DATABASE": self.database,
-                       "JOB_INPUT_ROOT": self.inputs, "JOB_OUTPUT_ROOT": self.outputs, "SECRET_KEY": "wan-tests"}
+                       "JOB_INPUT_ROOT": self.inputs, "JOB_OUTPUT_ROOT": self.outputs,
+                       "JOB_VIDEO_OUTPUT_ROOT": self.videos, "SECRET_KEY": "wan-tests"}
         self.app = create_app(self.config)
         self.client, self.store = self.app.test_client(), JobStore(self.database)
         source = BytesIO()
@@ -102,8 +104,9 @@ class WanExecutionTests(unittest.TestCase):
         self.assertEqual(response.status_code, 303, response.get_data(as_text=True))
         return response.location.rsplit("/", 1)[1]
 
-    def worker(self):
-        return Worker(self.store, self.outputs)
+    def worker(self, **options):
+        options.setdefault("video_output_dir", self.videos)
+        return Worker(self.store, self.outputs, **options)
 
     def staged_files(self):
         return list(self.inputs.glob("*/source.*"))
@@ -257,6 +260,10 @@ class WanExecutionTests(unittest.TestCase):
         self.worker().run(once=True)
         result = self.client.get(f"/api/jobs/{identifier}").json
         self.assertEqual(result["status"], "completed")
+        record = self.store.get(identifier).outputs[0]
+        for path in (record.file_path, record.metadata_path, record.conditioning_path):
+            self.assertEqual(path.parent, self.videos / identifier)
+        self.assertFalse((self.outputs / identifier).exists())
         output = result["outputs"][0]
         self.assertEqual((output["width"], output["height"]), (48, 32))
         self.assertEqual((output["frame_count"], output["fps"]), (5, 12))
@@ -288,6 +295,17 @@ class WanExecutionTests(unittest.TestCase):
         for expected in ('<video', 'controls playsinline', '48 × 32', '5 frames', '12 FPS',
                          'Uploaded source', 'Exact conditioning image', '1 of 1 videos saved'):
             self.assertIn(expected, html)
+
+    def test_existing_videos_in_image_output_root_remain_downloadable(self):
+        identifier = self.submit()
+        self.worker(video_output_dir=self.outputs).run(once=True)
+        result = self.client.get(f"/api/jobs/{identifier}").json
+        self.assertEqual(result["status"], "completed")
+        output = result["outputs"][0]
+        for key in ("download_url", "metadata_url", "conditioning_url"):
+            response = self.client.get(output[key])
+            self.assertEqual(response.status_code, 200)
+            response.close()
 
     def test_second_variation_progress_has_separate_steps_and_saved_count(self):
         identifier = self.submit(num_videos_per_prompt="2")
@@ -375,7 +393,7 @@ class WanExecutionTests(unittest.TestCase):
             with patch("image_generator.generation.export_video", side_effect=failed_export):
                 self.assertEqual(worker.run_once().status, "failed")
             self.assertEqual(worker.run_once().status, "completed")
-        self.assertEqual(list((self.outputs / failed).iterdir()), [])
+        self.assertEqual(list((self.videos / failed).iterdir()), [])
         self.assertEqual(len(self.pipelines), 2)
         self.assertEqual(self.store.get(following).status, "completed")
 

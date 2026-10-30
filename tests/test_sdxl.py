@@ -1,11 +1,8 @@
 """Validate SDXL behavior without downloading weights or requiring CUDA."""
 
-from contextlib import nullcontext, redirect_stdout, redirect_stderr
-import importlib.util
-import io
+from contextlib import nullcontext
 import json
 from pathlib import Path
-import subprocess
 import sys
 import tempfile
 from types import SimpleNamespace
@@ -19,14 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from image_generator.catalog import CatalogValidationError, discover_catalog
-from image_generator.generation import prepare_generation, run_generation, save_batch
+from image_generator.generation import prepare_generation, request_snapshot, run_generation, save_batch
 from image_generator.workflows.base import GeneratedBatch
 from image_generator.workflows.registry import create_workflow
 from image_generator.workflows.sdxl import SDXLWorkflow
-
-SPEC = importlib.util.spec_from_file_location("generate_sdxl", ROOT / "scripts/generate_sdxl.py")
-CLI = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(CLI)
 
 
 class DefaultScheduler:
@@ -376,52 +369,75 @@ class SDXLTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "count"):
             save_batch(GeneratedBatch((), {"seeds": [1]}), self.root / "images")
 
-    def test_cli_dry_run_works_without_site_packages_from_another_directory(self):
-        result = subprocess.run(
-            [sys.executable, "-S", str(ROOT / "scripts/generate_sdxl.py"), "--root", str(self.root),
-             "--model-id", "base", "--prompt", "a forest", "--seed", "random", "--dry-run"],
-            cwd="/tmp", capture_output=True, text=True, timeout=10,
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        data = json.loads(result.stdout)
+    def test_request_snapshot_validates_without_loading_runtime_or_saving_outputs(self):
+        before = {path: path.read_bytes() for path in self.root.rglob("*") if path.is_file()}
+        request = self.request(prompt="a forest", negative_prompt="blurry", seed=None)
+        data = json.loads(json.dumps(request_snapshot(request), allow_nan=False))
         self.assertEqual(data["model"]["id"], "base")
+        self.assertEqual(data["model"]["workflow"], "sdxl")
         self.assertEqual(data["prompt"], "a forest")
+        self.assertEqual(data["negative_prompt"], "blurry")
         self.assertIsNone(data["settings"]["seed"])
         self.assertEqual(data["loras"], [])
-
-    def test_cli_generates_using_the_backend(self):
-        stdout, stderr = io.StringIO(), io.StringIO()
-        with redirect_stdout(stdout), redirect_stderr(stderr):
-            code = CLI.main(["--root", str(self.root), "--model-id", "base", "--prompt", "a forest",
-                             "--seed", "99", "--output-dir", str(self.root / "output")])
-        self.assertEqual(code, 0, stderr.getvalue())
-        self.assertIn("Seed: 99", stdout.getvalue())
-        metadata = json.loads(next((self.root / "output").glob("*.json")).read_text())
-        self.assertEqual(metadata["prompt"], "a forest")
-        self.assertEqual(metadata["seed"], 99)
-
-    def test_cli_invalid_input_returns_nonzero_without_runtime_import(self):
-        with redirect_stderr(io.StringIO()) as stderr:
-            code = CLI.main(["--root", str(self.root), "--model-id", "base", "--prompt", "test", "--width", "13"])
-        self.assertEqual(code, 1)
-        self.assertIn("divisible", stderr.getvalue())
         self.runtime_import.assert_not_called()
+        after = {path: path.read_bytes() for path in self.root.rglob("*") if path.is_file()}
+        self.assertEqual(before, {path: after[path] for path in before})
+        for path in after.keys() - before.keys():
+            self.assertEqual(path.name, "model.user.json")
+            self.assertEqual(json.loads(after[path]), {"schema_version": 1, "settings": {}})
 
-    def test_cli_can_select_multiple_loras_and_disable_saved_links(self):
+    def test_run_generation_releases_pipeline_on_success_and_save_failure(self):
+        request = self.request(prompt="a forest", seed=99)
+        self.workflow = SDXLWorkflow(device="cpu", local_files_only=True)
+        self.addCleanup(self.workflow.close)
+        with patch("image_generator.generation.create_workflow", return_value=self.workflow) as factory:
+            outputs = run_generation(request, self.root / "output", device="cpu", local_files_only=True)
+        factory.assert_called_once_with("sdxl", device="cpu", local_files_only=True)
+        self.assertIsNone(self.workflow._pipeline)
+        self.assertEqual(self.loader.from_pretrained.call_args.kwargs["dtype"], "fp32")
+        self.assertTrue(self.loader.from_pretrained.call_args.kwargs["local_files_only"])
+        self.assertEqual(outputs[0].seed, 99)
+        with Image.open(outputs[0].image_path) as image:
+            self.assertEqual(image.format, "PNG")
+        metadata = json.loads(outputs[0].metadata_path.read_text())
+        self.assertEqual((metadata["prompt"], metadata["seed"]), ("a forest", 99))
+
+        failed_directory = self.root / "failed-output"
+        with patch("image_generator.generation.create_workflow", return_value=self.workflow), \
+                patch("image_generator.generation.save_batch", side_effect=OSError("disk full")), \
+                self.assertRaisesRegex(OSError, "disk full"):
+            run_generation(request, failed_directory)
+        self.assertIsNone(self.workflow._pipeline)
+        self.assertFalse(failed_directory.exists())
+        self.assertEqual(len(self.pipelines), 2)
+
+    def test_unexpected_pipeline_image_count_discards_pipeline_and_recovers(self):
+        request = self.request(num_images_per_prompt=2)
+        self.workflow.generate(request)
+        self.pipelines[0].invoke.side_effect = lambda **kwargs: SimpleNamespace(
+            images=[Image.new("RGB", (16, 16))])
+        with self.assertRaisesRegex(RuntimeError, "unexpected number of images"):
+            self.workflow.generate(request)
+        self.assertIsNone(self.workflow._pipeline)
+        batch = self.workflow.generate(request)
+        self.assertEqual((len(batch.images), batch.metadata["seeds"]), (2, [42, 43]))
+        self.assertEqual(len(self.pipelines), 2)
+
+    def test_saved_loras_can_be_overridden_or_explicitly_disabled_per_request(self):
         self.add_lora()
         self.add_lora("detail")
-        args = ["--root", str(self.root), "--model-id", "base", "--prompt", "test", "--dry-run"]
-        with redirect_stdout(io.StringIO()) as stdout:
-            code = CLI.main([*args, "--lora", "style:0.4", "--lora", "detail"])
-        self.assertEqual(code, 0)
-        self.assertEqual([item["strength"] for item in json.loads(stdout.getvalue())["loras"]], [0.4, 0.8])
-        self.write(self.model_path.with_name("model.user.json"), {
+        user_path = self.write(self.model_path.with_name("model.user.json"), {
             "schema_version": 1, "settings": {"loras": [{"id": "style", "enabled": True}]},
         })
-        with redirect_stdout(io.StringIO()) as stdout:
-            code = CLI.main([*args, "--no-loras"])
-        self.assertEqual(code, 0)
-        self.assertEqual(json.loads(stdout.getvalue())["loras"], [])
+        saved_settings = user_path.read_bytes()
+        self.assertEqual([selection.asset.id for selection in self.request().loras], ["style"])
+        request = self.request(loras=[{"id": "style", "enabled": True, "strength": 0.4},
+                                      {"id": "detail", "enabled": True}])
+        self.assertEqual([(selection.asset.id, selection.strength) for selection in request.loras],
+                         [("style", 0.4), ("detail", 0.8)])
+        self.assertEqual(self.request(loras=[]).loras, ())
+        self.assertEqual(user_path.read_bytes(), saved_settings)
+        self.runtime_import.assert_not_called()
 
 
 if __name__ == "__main__":
