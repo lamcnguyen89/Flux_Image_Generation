@@ -252,7 +252,7 @@ class Worker:
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", type=Path, default=PROJECT_ROOT / "data/jobs.sqlite3")
-    parser.add_argument("--output-dir", type=Path, default=PROJECT_ROOT / "data/outputs")
+    parser.add_argument("--output-dir", type=Path, default=PROJECT_ROOT / "Images")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--once", action="store_true", help="process at most one job, then exit")
     mode.add_argument("--drain", action="store_true", help="exit when no queued jobs remain")

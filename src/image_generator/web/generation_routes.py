@@ -15,7 +15,7 @@ generation_bp = Blueprint("generation", __name__)
 
 
 @generation_bp.route("/generate/<model_id>", methods=["GET", "POST"])
-def configure(model_id):
+def configure(model_id, settings_errors=None):
     # Catalog browsing keeps workflow imports lazy; these modules are CPU-only.
     from image_generator.workflows.registry import create_workflow
     from image_generator.workflows.ui import FormValidationError
@@ -49,6 +49,8 @@ def configure(model_id):
     submission_key = form.get("submission_key") if form is not None else None
     submission_key = submission_key or uuid4().hex
     can_generate = model.defaults["workflow"] == "sdxl" and mode == "txt2img"
+    if settings_errors is not None:
+        action = "preview"
     if action not in {"preview", "generate"}:
         return render_template("error.html", title="Unknown action", message="Choose preview or generation."), 400
     if action == "generate":
@@ -59,7 +61,9 @@ def configure(model_id):
         if not form.get("submission_key") or not re.fullmatch(r"[0-9a-f]{32}", submission_key):
             return render_template("error.html", title="Invalid submission", message="Reload the generation form before submitting again."), 400
     include_triggers = form is not None and form.get("include_trigger_words") == "on"
-    if form is not None:
+    if settings_errors is not None:
+        errors.update(settings_errors)
+    elif form is not None:
         submitted, errors = parse_settings(ui, settings, form)
         links, lora_errors = parse_loras(options, form)
         errors.update(lora_errors)
@@ -104,8 +108,14 @@ def configure(model_id):
                 else:
                     return redirect(url_for("jobs.detail", job_id=job.id), code=303)
 
+    from image_generator.catalog.persistence import settings_revision
+
+    notices = {"model_saved": "Model settings saved.", "model_reset": "Model settings reset to inherited defaults.",
+               "adapter_saved": "Shared adapter defaults saved.", "adapter_reset": "Shared adapter defaults reset."}
     return render_template(
         "generate.html", model=model, ui=ui, values=values, loras=options,
         errors=errors, preview=preview, include_triggers=include_triggers,
         can_generate=can_generate, csrf_token=csrf_token(), submission_key=submission_key,
+        settings_revision=form.get("settings_revision", "") if form is not None else settings_revision(catalog),
+        settings_notice=notices.get(request.args.get("settings_result")),
     ), (status_code if status_code != 200 else 422) if errors else 200

@@ -111,6 +111,51 @@ verification. Unknown WAN variants/expert targets remain unavailable. Strength
 precedence is model link → adapter saved override → adapter default. Adapter
 recommendations are displayed but never applied automatically.
 
+## Save and reset settings
+
+**Save model settings** persists the generation controls and configured LoRA
+list to `model.user.json`. An empty prompt is allowed when saving defaults;
+previewing or generating still requires one. Saving does not check weights,
+upload source images, or load a runtime. Video source files remain transient.
+
+Enable any number of compatible adapters. **Keep in model settings when
+disabled** retains an adapter and its strength without using it in generation.
+**Remove from model settings** clears both checkboxes; save to persist removal.
+Choose **Use adapter default** to follow the adapter's shared strength, or
+**Checkpoint-specific override** to save a strength for this model only.
+Changing the strength input selects a checkpoint override. Recommendations
+change supported form fields only after **Apply recommended settings** is
+clicked; save separately to keep them.
+
+Expand **Edit shared adapter defaults** to save strength and trigger words in
+`lora.user.json`. This affects models that follow the adapter default and leaves
+checkpoint overrides intact. **Reset adapter defaults** clears all saved
+overrides for that adapter. Shared-default actions reload the form, discarding
+unsaved model edits.
+
+**Reset model settings** clears all model overrides and restores workflow/model
+defaults, including shipped adapter links. **Reload saved settings** discards
+unsaved form edits without changing files. Saving a LoRA list replaces the
+inherited list; removing every adapter saves an explicit empty list when needed.
+
+The CPU-only `catalog/persistence.py` service writes only differences from
+workflow plus model defaults (adapter defaults for shared preferences). It
+preserves settings outside the edited fields, including nested keys, and keeps
+explicit `null` values such as random seeds. Its `remove` parameter deletes named
+overrides to restore inheritance. `web/settings_routes.py` provides CSRF-protected
+POST actions at `/settings/models/<model_id>` and
+`/settings/adapters/<adapter_id>`. An editor revision includes catalog defaults
+and user settings; stale saves/resets return 409 and require reloading. Service
+writes are serialized by a catalog lock and publish validated JSON through an
+atomic file replacement. External manifest editors should reload before saving
+and avoid writing concurrently with the app.
+
+To check persistence using the fixture library, save FLUX's style adapter enabled
+at 0.35 and detail adapter disabled at 0.7, reload, then preview with a prompt.
+Both configurations should survive, while only style appears in the preview.
+Try default/override strength modes, shared defaults, removing all adapters,
+resetting, and submitting a second tab opened before the first tab's save.
+
 To add another checkpoint for an existing workflow, provide its manifests and
 requirements. For another workflow, implement/register it, declare `ui_modes`,
 define its fields, and add a partial if generic controls are insufficient.
@@ -159,6 +204,15 @@ directories, inspects rendered controls, and submits their values through Flask'
 test client. It covers typed previews, multiple adapters, seed precision,
 validation errors, HTML escaping, unchanged files, absent weight handling,
 navigation, static assets, and rendering the actual library's models.
+
+`test_settings.py` uses temporary copies of the manifests to check model/adapter
+save and reset, disabled adapters, checkpoint isolation, shared inheritance,
+nested overrides, null seeds, empty lists/prompts, validation and CSRF rejection,
+stale/concurrent submissions, and failed atomic replacements. Run it with:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -p 'test_settings.py' -v
+```
 
 These are HTTP/template and Python checks; they do not execute browser JavaScript
 or certify visual layout. Use the manual checks above for thumbnails, dynamic

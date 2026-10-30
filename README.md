@@ -23,7 +23,8 @@ the typed request. For a demo without weights or a GPU, run
 `IMAGE_GENERATOR_CATALOG_ROOT=tests/fixtures/model_families .venv/bin/python main.py`.
 See [generation UI testing](Documents/Generation_UI.md) for the workflow contract,
 fixture pages, and automated/manual checks. SDXL also supports queue submission
-and live progress; settings persistence remains a separate feature.
+and live progress. The forms also save/reset model settings and shared adapter
+defaults, retain disabled LoRAs, and support checkpoint-specific strengths.
 
 Catalog loading automatically creates missing model/LoRA defaults from the
 family's example JSON and missing user files with empty overrides. Existing
@@ -74,9 +75,10 @@ See [MiniMax setup, generation, and tests](Documents/MiniMax_Workflow.md) for it
 ComfyUI runtime, component requirements, fixture form, and silent MP4 outputs.
 
 The shared durable queue and worker lifecycle are implemented. Start a dedicated
-worker with `.venv/bin/python scripts/run_worker.py`, or test two queued fake
+worker with `.venv/bin/python -m image_generator.worker`, or test two queued fake
 workflows producing small PNGs with `.venv/bin/python tests/demo_queue.py`.
 See [queue usage, recovery, and tests](Documents/Worker_Queue.md). SDXL web forms
 now submit jobs, show loading and denoising progress, and display saved images.
-Run the Flask app and worker in separate terminals; see
+Start both in one terminal with `bash scripts/start.sh` (automatically uses
+`.venv`); Ctrl+C stops the web app and lets an active generation finish. See
 [SDXL execution and GPU testing](Documents/SDXL_UI_Execution.md).

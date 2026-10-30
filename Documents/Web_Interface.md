@@ -3,6 +3,16 @@
 Run from the project root after the [environment setup](Setup.md):
 
 ```bash
+bash scripts/start.sh
+```
+
+This starts the web server and generation worker together using `.venv`. Logs
+appear in the same terminal. Ctrl+C stops both, allowing active generation to
+finish. See [launcher options and GPU testing](SDXL_UI_Execution.md).
+
+To start only the web server:
+
+```bash
 .venv/bin/python main.py
 ```
 

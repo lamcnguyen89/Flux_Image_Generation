@@ -7,8 +7,28 @@ FLUX, WAN, and MiniMax web forms retain their existing request-preview behavior.
 
 ## Run with the actual GPU
 
-From the project root, restart the web app and worker to load the updated code.
-Use one terminal for Flask:
+From the project root, start both services in one terminal:
+
+```bash
+bash scripts/start.sh --device cuda:0 --dtype float16
+```
+
+The launcher automatically selects `.venv`, streams both services' logs to the
+terminal, and disables Flask's automatic reloader. Press **Ctrl+C** to stop the
+web server and let the worker finish its active job before exiting. If either
+service exits unexpectedly, the launcher stops the other one as well. Stop any
+existing web server and worker before using the launcher.
+
+`--host` and `--port` configure the web server. `--database` and `--output-dir`
+configure both services together; defaults are `data/jobs.sqlite3` and `Images`.
+Relative paths resolve from the project root. The launcher reads `.env` and
+`.flaskenv` before starting either process and honors
+`IMAGE_GENERATOR_JOB_DATABASE`/`IMAGE_GENERATOR_JOB_OUTPUT_ROOT` unless overridden
+on the command line. Other arguments, including `--device`, `--dtype`, and
+`--local-files-only`, are passed to the worker. Omit `--dtype` to use each
+workflow's default precision when running a mixed-family queue.
+
+To run the services separately instead, use one terminal for Flask:
 
 ```bash
 .venv/bin/python main.py
@@ -17,7 +37,7 @@ Use one terminal for Flask:
 Use another terminal for the dedicated SDXL worker:
 
 ```bash
-.venv/bin/python scripts/run_worker.py --device cuda:0 --dtype float16
+.venv/bin/python -m image_generator.worker --device cuda:0 --dtype float16
 ```
 
 Open <http://127.0.0.1:5000/>, choose an SDXL checkpoint, and select **Configure
@@ -71,7 +91,9 @@ Flask defaults match the worker defaults:
 | Flask configuration | Default | Worker option |
 | --- | --- | --- |
 | `JOB_DATABASE` | `data/jobs.sqlite3` | `--database` |
-| `JOB_OUTPUT_ROOT` | `data/outputs` | `--output-dir` |
+| `JOB_OUTPUT_ROOT` | `Images` | `--output-dir` |
+
+Each job's images and JSON metadata are saved in `Images/<job_id>/` by default.
 
 Environment overrides use `IMAGE_GENERATOR_JOB_DATABASE` and
 `IMAGE_GENERATOR_JOB_OUTPUT_ROOT`. Point both processes at the same database and
@@ -96,6 +118,7 @@ No catalog rediscovery is needed to view existing jobs or serve their results.
 ## Automated checks
 
 ```bash
+.venv/bin/python -m unittest discover -s tests -p 'test_start.py' -v
 .venv/bin/python -m unittest discover -s tests -p 'test_sdxl_execution.py' -v
 .venv/bin/python -m unittest discover -s tests -v
 ```

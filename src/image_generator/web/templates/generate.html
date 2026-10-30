@@ -14,9 +14,12 @@
 {% if errors %}
 <section class="card form-errors" role="alert" aria-labelledby="errors-heading"><h2 id="errors-heading">Check these values</h2><ul>{% for name, message in errors.items() %}<li><strong>{{ name }}</strong>: {{ message }}</li>{% endfor %}</ul></section>
 {% endif %}
+{% if settings_notice %}<p class="preview-success" role="status">{{ settings_notice }}</p>{% endif %}
 <form method="post" action="{{ url_for('generation.configure', model_id=model.id) }}" enctype="multipart/form-data" id="generation-form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="submission_key" value="{{ submission_key }}">
+  <input type="hidden" name="settings_revision" value="{{ settings_revision }}">
+  <input type="hidden" name="model_id" value="{{ model.id }}">
   <div class="generation-layout">
     <div class="generation-controls">
       <section class="card form-section"><label for="generation-mode">Generation mode</label><select id="generation-mode" name="mode">{% for mode in ui.supported_modes %}<option value="{{ mode }}"{% if mode == ui.mode %} selected{% endif %}>{{ mode | mode_label }}</option>{% endfor %}</select></section>
@@ -41,6 +44,9 @@
         {% if can_generate %}<p class="muted">Your request joins the queue. Follow loading and denoising progress on its job page.</p><button type="submit" name="action" value="generate" class="primary-button">Generate images</button>{% endif %}
         <p class="field-help">Preview checks your form values without starting generation or saving settings.</p>
         <button type="submit" name="action" value="preview" class="{{ 'secondary-button' if can_generate else 'primary-button' }}">Preview request</button>
+        <button type="submit" name="action" value="save_model" formaction="{{ url_for('settings.model_settings', model_id=model.id) }}" formnovalidate class="secondary-button">Save model settings</button>
+        <button type="submit" name="action" value="reset_model" formaction="{{ url_for('settings.model_settings', model_id=model.id) }}" formnovalidate class="secondary-button">Reset model settings</button>
+        <p class="field-help">Save keeps configured adapters, including disabled ones. Reset clears all model overrides and restores shipped settings and adapter links.</p>
         <a class="reload-link" href="{{ url_for('generation.configure', model_id=model.id, mode=ui.mode) }}">Reload saved settings</a>
         {% if preview %}<p class="preview-success" role="status">Form values are valid. Generation assets have not been checked.</p><p class="field-help">Source filenames describe this preview only; files are not saved.</p><pre class="json-block request-preview" id="request-preview">{{ preview | tojson(indent=2) }}</pre>
         {% else %}<p class="field-help">Your resolved request will appear here after a successful preview.</p>{% endif %}

@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 import json
+import os
 from pathlib import Path
 import signal
 import subprocess
@@ -249,10 +250,11 @@ worker.run()
     def test_cli_empty_queue_works_without_site_packages_or_model_imports(self):
         code = f"""
 import runpy, sys
-sys.argv = [{str(ROOT / 'scripts/run_worker.py')!r}, '--database', {str(self.store.database)!r},
+sys.path.insert(0, {str(ROOT / 'src')!r})
+sys.argv = ['image_generator.worker', '--database', {str(self.store.database)!r},
             '--output-dir', {str(self.root / 'outputs')!r}, '--once']
 try:
-    runpy.run_path(sys.argv[0], run_name='__main__')
+    runpy.run_module('image_generator.worker', run_name='__main__')
 except SystemExit as error:
     assert error.code == 0
 assert not any(name in sys.modules for name in ('torch', 'diffusers', 'comfy', 'flask', 'PIL'))
@@ -262,9 +264,12 @@ assert not any(name in sys.modules for name in ('torch', 'diffusers', 'comfy', '
         self.assertEqual(self.store.worker_status()["status"], "stopped")
 
     def test_cli_sigterm_stops_an_idle_worker_cleanly(self):
-        process = subprocess.Popen([sys.executable, "-S", str(ROOT / "scripts/run_worker.py"),
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(ROOT / "src") + (
+            os.pathsep + environment["PYTHONPATH"] if environment.get("PYTHONPATH") else "")
+        process = subprocess.Popen([sys.executable, "-S", "-m", "image_generator.worker",
                                     "--database", str(self.store.database), "--poll-interval", "0.02"],
-                                   cwd="/tmp", stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                                   cwd="/tmp", env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         try:
             wait_until(lambda: self.store.worker_status() is not None or process.poll() is not None)
             self.assertIsNone(process.poll())

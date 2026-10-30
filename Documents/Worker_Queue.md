@@ -74,15 +74,16 @@ current web form's stateless preview.
 In a separate terminal/process:
 
 ```bash
-.venv/bin/python scripts/run_worker.py
+.venv/bin/python -m image_generator.worker
 ```
 
-Defaults are `data/jobs.sqlite3` and `data/outputs/<job_id>/`. Options include:
+Defaults are `data/jobs.sqlite3` and `Images/<job_id>/`. Each job's images and
+JSON metadata are grouped in its own directory. Options include:
 
 ```bash
-.venv/bin/python scripts/run_worker.py --once
-.venv/bin/python scripts/run_worker.py --drain
-.venv/bin/python scripts/run_worker.py \
+.venv/bin/python -m image_generator.worker --once
+.venv/bin/python -m image_generator.worker --drain
+.venv/bin/python -m image_generator.worker \
   --database /path/to/jobs.sqlite3 --output-dir /path/to/outputs \
   --device cuda:0 --local-files-only
 ```
@@ -103,7 +104,7 @@ The library also supports explicit lifecycle control and per-workflow options:
 ```python
 from image_generator.worker import Worker
 
-with Worker(store, "data/outputs", runtime_options={
+with Worker(store, "Images", runtime_options={
     "sdxl": {"device": "cuda:0", "local_files_only": True},
     "minimax": {"comfyui_dir": "build/ComfyUI", "local_files_only": True},
 }) as worker:
