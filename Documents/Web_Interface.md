@@ -78,7 +78,14 @@ factory CLI:
   video** with a source-image upload. All execute on the dedicated worker.
   See [generation forms](Generation_UI.md) for fixture startup and testing.
 - `/jobs` lists recent jobs; `/jobs/<job_id>` displays live progress, execution
-  history, errors, and saved outputs. `/api/jobs/<job_id>` supplies polling data.
+  history, errors, and saved outputs. Below the progress bar, elapsed time and
+  estimated remaining time update every second for SDXL, FLUX, WAN, and MiniMax.
+  Elapsed time starts when the worker claims the job and stops when it finishes.
+  Estimates use observed denoising speed and include later videos in a batch;
+  loading, decoding, and saving can add time. The display shows “Estimating…”
+  before timing samples are available and “Finishing…” during final processing.
+  Timing survives page refreshes. `/api/jobs/<job_id>` supplies polling data,
+  including a `timing` object with numeric seconds and formatted display values.
 
 The catalog and saved-settings pages support GET and HEAD; writes to those
 routes return 405. Generation forms support GET, HEAD, POST previews, and SDXL/FLUX/WAN/MiniMax

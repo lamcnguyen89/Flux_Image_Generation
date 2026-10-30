@@ -9,6 +9,8 @@ from flask import Blueprint, abort, current_app, jsonify, render_template, reque
 
 from image_generator.jobs import JobStore
 
+from .job_timing import job_timing
+
 
 jobs_bp = Blueprint("jobs", __name__)
 TERMINAL = {"completed", "failed", "interrupted"}
@@ -123,6 +125,7 @@ def job_payload(job):
     completion_text = f"{len(job.outputs)} of {video_count} videos saved" if video_count else ""
     if variation and job.status == "running":
         completion_text += f" · Video {variation.current} of {variation.total}"
+    notice = worker_notice(get_job_store(), job)
     return {
         "id": job.id, "model": {"id": model["id"], "name": model["display_name"]},
         "workflow": job.workflow, "mode": job.request["mode"], "status": job.status,
@@ -131,7 +134,8 @@ def job_payload(job):
                      "text": progress_text(job.stage, job.current, job.total),
                      "completion_text": completion_text},
         "source_url": url_for("jobs.source", job_id=job.id) if managed_source_path(job) else None,
-        "worker_notice": worker_notice(get_job_store(), job),
+        "worker_notice": notice,
+        "timing": job_timing(job, worker_available=not notice),
         "events": [{"stage": event.stage, "label": stage_label(event.stage),
                     "current": event.current, "total": event.total,
                     "text": progress_text(event.stage, event.current, event.total)} for event in job.events],

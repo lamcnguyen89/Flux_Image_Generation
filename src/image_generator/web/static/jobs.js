@@ -102,6 +102,8 @@ if (jobView) {
     document.getElementById("progress-stage").textContent = job.progress.label;
     document.getElementById("progress-count").textContent = job.progress.text;
     document.getElementById("progress-completion").textContent = job.progress.completion_text;
+    document.getElementById("job-elapsed").textContent = job.timing.elapsed_text;
+    document.getElementById("job-remaining").textContent = job.timing.remaining_text;
     const progress = document.getElementById("job-progress");
     if (job.progress.total > 0 && job.progress.current !== null) {
       progress.max = job.progress.total;

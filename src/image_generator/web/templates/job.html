@@ -9,9 +9,14 @@
     <div class="section-heading"><h2 id="job-status-heading">Job status</h2><span class="badge accent" id="job-state">{{ job.status | capitalize }}</span></div>
     <p id="progress-stage" aria-live="polite">{{ status.progress.label }}</p>
     <progress id="job-progress" aria-label="Current stage progress"{% if job.total and job.current is not none %} max="{{ job.total }}" value="{{ job.current }}"{% else %} max="1"{% if status.terminal %} value="0"{% endif %}{% endif %}></progress>
+    <dl class="job-timing" aria-label="Generation timing">
+      <div><dt>Elapsed</dt><dd id="job-elapsed">{{ status.timing.elapsed_text }}</dd></div>
+      <div><dt>Remaining (estimated)</dt><dd id="job-remaining">{{ status.timing.remaining_text }}</dd></div>
+    </dl>
     <p class="muted" id="progress-count">{{ status.progress.text }}</p>
     <p class="muted" id="progress-completion">{{ status.progress.completion_text }}</p>
     {% if status.video_count %}<p class="field-help">Steps show denoising progress for the active video. Loading, decoding, and encoding also take time.</p>{% endif %}
+    <p class="field-help">Remaining time uses the observed denoising speed{% if status.video_count %} and includes later videos{% endif %}. Loading, decoding, and saving can add time.</p>
     <p class="worker-notice" id="worker-notice"{% if not status.worker_notice %} hidden{% endif %}>{{ status.worker_notice }}</p>
     <p class="muted" id="connection-status" role="status">{{ 'Job finished.' if status.terminal else 'Live updates every second.' }}</p>
     <a href="{{ url_for('jobs.detail', job_id=job.id) }}">Refresh status</a>
