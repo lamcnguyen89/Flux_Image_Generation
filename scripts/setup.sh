@@ -153,6 +153,5 @@ fi
 # Dependencies were installed above; install the src package without resolving them again.
 "$venv_python" -m pip install --no-deps -e "$project_root"
 "$venv_python" -m pip check
-"$venv_python" "$script_dir/check_environment.py"
 printf '\nSetup complete. Activate with: source "%s/bin/activate"\n' "$venv_dir"
 printf 'Model families: SDXL, FLUX, WAN, MiniMax H3 (ComfyUI: %s)\n' "$comfyui_dir"
