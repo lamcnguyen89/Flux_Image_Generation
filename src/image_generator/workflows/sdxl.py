@@ -156,11 +156,15 @@ class SDXLWorkflow(Workflow):
         fingerprint = None
         if path is not None:
             stat = path.stat()
-            fingerprint = (str(path), stat.st_size, stat.st_mtime_ns)
+            fingerprint = (str(path), stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
         key = (request.model.id, request.model.defaults.get("base_model_id"), fingerprint)
         if self._pipeline is not None and self._model_key == key:
-            return
+            self.report_progress("reusing_model")
+            return True
+        if self._pipeline is not None:
+            self.report_progress("switching_model")
         self.close()
+        self.report_progress("loading_model")
         options = {
             "dtype": getattr(self._torch, self.dtype), "use_safetensors": True,
             "local_files_only": self.local_files_only,
@@ -182,6 +186,7 @@ class SDXLWorkflow(Workflow):
         self._scheduler_class = type(self._pipeline.scheduler)
         self._scheduler_config = deepcopy(dict(self._pipeline.scheduler.config))
         self._model_key = key
+        return False
 
     def _configure_scheduler(self, request):
         sampler = request.settings["sampling"]["sampler"]
@@ -194,10 +199,13 @@ class SDXLWorkflow(Workflow):
         self._pipeline.scheduler = scheduler_class.from_config(self._scheduler_config, **options)
 
     def _configure_loras(self, request):
+        reset = self._has_adapters
         if self._has_adapters:
+            self.report_progress("resetting_loras")
             self._pipeline.unload_lora_weights()
             self._has_adapters = False
-        for selection in request.loras:
+        for index, selection in enumerate(request.loras):
+            self.report_progress("loading_loras", index, len(request.loras))
             self._has_adapters = True  # Failed loading may already have modified modules.
             path = selection.asset.asset_paths["weights"]
             try:
@@ -212,14 +220,17 @@ class SDXLWorkflow(Workflow):
                 [selection.adapter_name for selection in request.loras],
                 adapter_weights=[float(selection.strength) for selection in request.loras],
             )
+        self.report_progress("loras_ready", len(request.loras), len(request.loras))
+        return reset
 
     def generate(self, request: GenerationRequest) -> GeneratedBatch:
         self.validate(request)
         try:
+            self.report_progress("loading_runtime")
             self._load_runtime()
-            self._load_pipeline(request)
+            model_reused = self._load_pipeline(request)
             self._configure_scheduler(request)
-            self._configure_loras(request)
+            loras_reset = self._configure_loras(request)
             settings = request.settings
             seed = settings["seed"]
             seeds = [
@@ -232,6 +243,20 @@ class SDXLWorkflow(Workflow):
             )}
             if settings["clip_skip"] is not None:
                 arguments["clip_skip"] = settings["clip_skip"]
+            if getattr(self, "_progress_callback", None) is not None:
+                def on_step_end(pipeline, step, timestep, callback_kwargs):
+                    total = getattr(pipeline, "num_timesteps", settings["num_inference_steps"])
+                    if type(total) is not int or total <= 0:
+                        total = settings["num_inference_steps"]
+                    current = min(step + 1, total)
+                    self.report_progress("denoising", current, total)
+                    if current == total:
+                        self.report_progress("decoding")
+                    return callback_kwargs
+
+                arguments["callback_on_step_end"] = on_step_end
+                arguments["callback_on_step_end_tensor_inputs"] = []
+            self.report_progress("denoising", 0, settings["num_inference_steps"])
             if self.device.startswith("cuda"):
                 self._torch.cuda.synchronize(self.device)
             start = perf_counter()
@@ -258,6 +283,7 @@ class SDXLWorkflow(Workflow):
                     "torch_version": self._torch.__version__,
                     "diffusers_version": self._diffusers.__version__,
                     "generation_seconds": seconds,
+                    "model_reused": model_reused, "loras_reset": loras_reset,
                 },
             })
         except Exception:

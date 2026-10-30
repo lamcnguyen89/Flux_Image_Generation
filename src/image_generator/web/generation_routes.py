@@ -1,9 +1,14 @@
-"""Generation forms and stateless request previews; no jobs or settings writes."""
+"""Generation forms, previews, and SDXL queue submission; no GPU execution."""
 
-from flask import Blueprint, abort, render_template, request
+import re
+import sqlite3
+from uuid import uuid4
+
+from flask import Blueprint, abort, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
 
 from .web import get_catalog
+from .security import csrf_token, valid_csrf
 
 
 generation_bp = Blueprint("generation", __name__)
@@ -39,6 +44,20 @@ def configure(model_id):
     values = display_values(ui, settings, form)
     options = lora_options(catalog, model, settings, form)
     errors, preview = {}, None
+    status_code = 200
+    action = form.get("action", "preview") if form is not None else "preview"
+    submission_key = form.get("submission_key") if form is not None else None
+    submission_key = submission_key or uuid4().hex
+    can_generate = model.defaults["workflow"] == "sdxl" and mode == "txt2img"
+    if action not in {"preview", "generate"}:
+        return render_template("error.html", title="Unknown action", message="Choose preview or generation."), 400
+    if action == "generate":
+        if not can_generate:
+            return render_template("error.html", title="Generation unavailable", message="Web submission currently supports SDXL text-to-image."), 400
+        if not valid_csrf(form.get("csrf_token")):
+            return render_template("error.html", title="Form expired", message="Reload the generation form before submitting again."), 400
+        if not form.get("submission_key") or not re.fullmatch(r"[0-9a-f]{32}", submission_key):
+            return render_template("error.html", title="Invalid submission", message="Reload the generation form before submitting again."), 400
     include_triggers = form is not None and form.get("include_trigger_words") == "on"
     if form is not None:
         submitted, errors = parse_settings(ui, settings, form)
@@ -62,8 +81,31 @@ def configure(model_id):
         if not errors:
             preview = {"model_id": model.id, "mode": mode, "overrides": submitted,
                        "include_trigger_words": include_triggers, "input_files": input_files}
+            if action == "generate":
+                from image_generator.generation import prepare_generation
+                from image_generator.jobs import SubmissionConflict
+                from .job_routes import get_job_store
+
+                try:
+                    prepared = prepare_generation(catalog, model.id, mode=mode, overrides=submitted,
+                                                  include_trigger_words=include_triggers)
+                    job = get_job_store().enqueue(prepared, submission_key=submission_key)
+                except SubmissionConflict as error:
+                    preview = None
+                    errors["generation"] = str(error)
+                    status_code = 409
+                except sqlite3.Error:
+                    preview = None
+                    errors["generation"] = "The generation queue is unavailable. Check database access and try again."
+                    status_code = 503
+                except (ValueError, OSError) as error:
+                    preview = None
+                    errors["generation"] = str(error)
+                else:
+                    return redirect(url_for("jobs.detail", job_id=job.id), code=303)
 
     return render_template(
         "generate.html", model=model, ui=ui, values=values, loras=options,
         errors=errors, preview=preview, include_triggers=include_triggers,
-    ), 422 if errors else 200
+        can_generate=can_generate, csrf_token=csrf_token(), submission_key=submission_key,
+    ), (status_code if status_code != 200 else 422) if errors else 200

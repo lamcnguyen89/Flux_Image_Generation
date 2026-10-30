@@ -7,7 +7,7 @@
   {% else %}
   <label for="{{ control_id }}">{{ field.label }}{% if field.required %} <span class="muted">(required)</span>{% endif %}</label>
   {% if field.type in ['textarea', 'string_list'] %}
-  <textarea id="{{ control_id }}" name="{{ field.name }}" rows="{{ 4 if field.name == 'prompt' else 2 }}"{% if field.required %} required{% endif %} aria-describedby="{{ control_id }}-help"{% if errors.get(field.name) %} aria-invalid="true"{% endif %}>{{ value }}</textarea>
+  <textarea id="{{ control_id }}" name="{{ field.name }}" rows="{{ 4 if field.name == 'prompt' else 2 }}"{% if field.required %} required{% endif %}{% if field.read_only %} readonly{% endif %} aria-describedby="{{ control_id }}-help"{% if errors.get(field.name) %} aria-invalid="true"{% endif %}>{{ value }}</textarea>
   {% elif field.type == 'select' %}
   <select id="{{ control_id }}" name="{{ field.name }}" aria-describedby="{{ control_id }}-help"{% if errors.get(field.name) %} aria-invalid="true"{% endif %}>
     {% if value not in field.choices | map(attribute=0) | list %}<option value="{{ value }}" selected disabled>Unavailable value: {{ value }}</option>{% endif %}
@@ -16,7 +16,7 @@
   {% elif field.type == 'file' %}
   <input type="file" id="{{ control_id }}" name="{{ field.name }}" accept="image/*"{% if field.required %} required{% endif %} aria-describedby="{{ control_id }}-help"{% if errors.get(field.name) %} aria-invalid="true"{% endif %}>
   {% else %}
-  <input type="{{ 'text' if field.name == 'seed' else ('number' if field.type in ['integer', 'number'] else 'text') }}" id="{{ control_id }}" name="{{ field.name }}" value="{{ value }}"{% if field.name == 'seed' %} inputmode="numeric" pattern="[0-9]+"{% endif %}{% if field.minimum is not none %} min="{{ field.minimum }}"{% endif %}{% if field.maximum is not none %} max="{{ field.maximum }}"{% endif %}{% if field.type in ['integer', 'number'] %} step="{{ field.step if field.step is not none else ('1' if field.type == 'integer' else 'any') }}"{% endif %}{% if not field.nullable and field.type in ['integer', 'number'] %} required{% endif %} aria-describedby="{{ control_id }}-help"{% if errors.get(field.name) %} aria-invalid="true"{% endif %}>
+  <input type="{{ 'text' if field.name == 'seed' else ('number' if field.type in ['integer', 'number'] else 'text') }}" id="{{ control_id }}" name="{{ field.name }}" value="{{ value }}"{% if field.name == 'seed' %} inputmode="numeric" pattern="[0-9]+"{% endif %}{% if field.minimum is not none %} min="{{ field.minimum }}"{% endif %}{% if field.maximum is not none %} max="{{ field.maximum }}"{% endif %}{% if field.type in ['integer', 'number'] %} step="{{ field.step if field.step is not none else ('1' if field.type == 'integer' else 'any') }}"{% endif %}{% if not field.nullable and field.type in ['integer', 'number'] %} required{% endif %}{% if field.read_only %} readonly{% endif %} aria-describedby="{{ control_id }}-help"{% if errors.get(field.name) %} aria-invalid="true"{% endif %}>
   {% endif %}
   {% endif %}
   <div id="{{ control_id }}-help" class="field-help">{{ field.help }}{% if errors.get(field.name) %}<p class="field-error">{{ errors[field.name] }}</p>{% endif %}</div>

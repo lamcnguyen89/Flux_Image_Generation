@@ -9,6 +9,7 @@ WORKFLOWS = {
     "sdxl": ("image_generator.workflows.sdxl", "SDXLWorkflow"),
     "flux": ("image_generator.workflows.flux", "FluxWorkflow"),
     "wan": ("image_generator.workflows.wan", "WanWorkflow"),
+    "minimax": ("image_generator.workflows.minimax", "MiniMaxWorkflow"),
 }
 
 

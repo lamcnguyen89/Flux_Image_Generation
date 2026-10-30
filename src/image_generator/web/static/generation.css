@@ -32,6 +32,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-
 .adapter-group legend { font-size: .9rem; }
 .primary-button { display: block; width: 100%; border: 0; border-radius: 6px; background: var(--accent); color: #10251f; padding: .8rem 1rem; font-weight: 700; cursor: pointer; }
 .primary-button:hover { background: #b7f3e0; }
+.secondary-button { display: block; width: 100%; margin-top: .8rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--accent); padding: .7rem; cursor: pointer; }
 .reload-link { display: block; text-align: center; font-size: .85rem; margin-block: .8rem 1.2rem; }
 .preview-success { color: var(--accent); font-size: .9rem; }
 .request-preview { margin-top: 1rem; max-height: 65vh; overflow: auto; }

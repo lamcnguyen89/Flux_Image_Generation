@@ -224,6 +224,12 @@ __marimo__/
 /Videos/
 /Models/huggingface/
 
+# Durable generation queue and generated job results
+/data/jobs.sqlite3
+/data/jobs.sqlite3-*
+/data/jobs.sqlite3.worker.lock
+/data/outputs/
+
 
 # Model weights (checkpoints, LoRAs, VAEs, etc.), ignored by extension anywhere in the repo
 *.safetensors

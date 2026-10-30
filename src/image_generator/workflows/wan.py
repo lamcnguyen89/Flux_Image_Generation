@@ -3,20 +3,10 @@
 import hashlib
 from io import BytesIO
 import math
-import subprocess
 from time import perf_counter
 
 from .base import GeneratedBatch
-from .common import TransformerWorkflow, _nonnegative_number, file_fingerprint, image_seeds, validate_common
-
-
-def check_video_encoder():
-    from imageio_ffmpeg import get_ffmpeg_exe
-
-    try:
-        subprocess.run([get_ffmpeg_exe(), "-version"], capture_output=True, check=True, timeout=10)
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise RuntimeError(f"MP4 encoder is unavailable: {exc}") from exc
+from .common import TransformerWorkflow, _nonnegative_number, check_video_encoder, file_fingerprint, image_seeds, validate_common
 
 
 class WanWorkflow(TransformerWorkflow):

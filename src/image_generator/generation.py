@@ -75,6 +75,7 @@ def request_snapshot(request: GenerationRequest) -> dict:
             "weights": str(weights) if weights else None,
             "manifest_path": str(model.manifest_path), "user_path": str(model.user_path),
             "requirements": model.defaults["requirements"],
+            "components": model.defaults.get("components", {}),
         },
         "settings": request.settings, "prompt": request.prompt,
         "negative_prompt": request.negative_prompt,
@@ -122,10 +123,18 @@ def save_batch(batch: GeneratedBatch, output_dir: str | Path) -> tuple[SavedImag
 
 
 def export_video(frames, path: Path, fps):
-    """Import video dependencies only when an actual MP4 is being written."""
-    from diffusers.utils import export_to_video
+    """Stream NumPy, PIL, or ComfyUI tensor frames without importing Diffusers."""
+    import imageio.v2 as imageio
+    import numpy as np
 
-    export_to_video(frames, str(path), fps=fps, macro_block_size=1)
+    with imageio.get_writer(str(path), fps=fps, codec="libx264", macro_block_size=1) as writer:
+        for frame in frames:
+            if hasattr(frame, "detach"):
+                frame = frame.detach().float().cpu().numpy()
+            pixels = np.asarray(frame)
+            if np.issubdtype(pixels.dtype, np.floating):
+                pixels = (pixels.clip(0, 1) * 255).round().astype(np.uint8)
+            writer.append_data(pixels)
 
 
 def save_video_batch(batch: GeneratedBatch, output_dir: str | Path) -> tuple[SavedVideo, ...]:
@@ -136,7 +145,8 @@ def save_video_batch(batch: GeneratedBatch, output_dir: str | Path) -> tuple[Sav
     output_dir.mkdir(parents=True, exist_ok=True)
     saved = []
     for frames, seed in zip(batch.videos, seeds, strict=True):
-        video_path = output_dir / f"wan-seed-{seed}-{uuid4().hex}.mp4"
+        family = batch.metadata["model"]["workflow"]
+        video_path = output_dir / f"{family}-seed-{seed}-{uuid4().hex}.mp4"
         metadata_path = video_path.with_suffix(".json")
         conditioning_path = video_path.with_suffix(".input.png")
         metadata = {

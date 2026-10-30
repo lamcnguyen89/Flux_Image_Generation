@@ -7,8 +7,18 @@ import math
 from pathlib import Path
 import re
 import secrets
+import subprocess
 
 from .base import Workflow
+
+
+def check_video_encoder():
+    from imageio_ffmpeg import get_ffmpeg_exe
+
+    try:
+        subprocess.run([get_ffmpeg_exe(), "-version"], capture_output=True, check=True, timeout=10)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"MP4 encoder is unavailable: {exc}") from exc
 
 
 def _nonnegative_number(value):

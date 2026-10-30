@@ -1,9 +1,15 @@
 # Generation forms and the workflow UI contract
 
-This first UI stage provides editable forms and stateless request previews for
-SDXL text-to-image, FLUX.1-dev text-to-image, and WAN 2.2 image-to-video. It uses
+The shared UI provides editable forms and stateless request previews for
+SDXL text-to-image, FLUX.1-dev text-to-image, WAN 2.2 image-to-video, and MiniMax H3
+image-to-video. It uses
 the existing Flask/Jinja application and model catalog. No GPU, model downloads,
 or weight files are required to render or preview a form.
+
+SDXL additionally supports **Generate images**, live job progress, and saved
+results through the durable worker. See [SDXL execution](SDXL_UI_Execution.md) for
+the two-process startup, model reuse/switching, and LoRA-reset checks. Fixture
+manifests are preview-only unless tests supply fake weights and a mocked runtime.
 
 ## Try the fixture library
 
@@ -20,11 +26,17 @@ Open <http://127.0.0.1:5000/> and select **Configure generation**, or use:
 | SDXL | <http://127.0.0.1:5000/generate/fixture-sdxl> | Width 768, seed 42, Euler ancestral, blank clip skip, style adapter enabled at 0.65. |
 | FLUX | <http://127.0.0.1:5000/generate/fixture-flux> | Guidance 4, true CFG 1, maximum sequence length 256. |
 | WAN | <http://127.0.0.1:5000/generate/fixture-wan> | 49 frames, 12 FPS, both guidance scales 3.5, high-noise adapter enabled at 0.7. |
+| MiniMax | <http://127.0.0.1:5000/generate/fixture-minimax> | 124 frames, fixed 24 FPS and CFG 1, RES multistep/simple sampling, one adapter at 0.7. |
 
 The fixture library contains all defaults/user JSON pairs, but deliberately no
 weights. It is separate from the real library. Stop the server with Ctrl+C;
 running `.venv/bin/python main.py` without the environment variable uses the
 actual library again. Real models also have a **Configure generation** link.
+
+MiniMax uses `17*n + 5` frames and its own partial, without WAN's expert groups.
+Negative prompt, CFG, and FPS controls are read-only for its BasicGuider mode;
+Python rejects attempts to change the fixed settings. See the
+[MiniMax guide](MiniMax_Workflow.md) for CLI generation and runtime requirements.
 
 Manual checks:
 
@@ -110,8 +122,9 @@ A successful POST displays a JSON preview with `model_id`, `mode`, fully resolve
 to the existing generation-preparation arguments. `input_files` contains selected
 filenames only, not executable filesystem paths or uploaded asset references.
 
-This stage does not save uploaded files, verify their image contents, persist
-settings, queue jobs, load weights, or produce media. WAN files must be selected
+Request previews do not save uploaded files, verify their image contents, persist
+settings, queue jobs, load weights, or produce media. SDXL's separate Generate
+action queues validated requests. WAN files must be selected
 again after submitting the preview. The browser thumbnail uses a temporary local
 object URL. JavaScript supplies hints only; the server works without it.
 

@@ -3,8 +3,8 @@
 The checkpoint manifests are in `checkpoints/minimax_h3/`. They register the local
 `minimaxH3_comfy_3086249.safetensors` checkpoint and link the included
 `Minimax_H3_Unlocked_V2.1.safetensors` LoRA at strength 1.0. The adapter's own
-manifests are in `loras/minimax_h3_unlocked_v2_1/`. Both weight files retain their
-existing locations; their manifests reference them using `../` paths.
+manifests are in `loras/minimax_h3_unlocked_v2_1/`. Each weight file is stored beside its
+defaults and user manifests in its asset subfolder.
 
 `model.defaults.json` and `lora.defaults.json` contain permanent IDs, asset
 metadata, and baseline settings. Keep their IDs when renaming assets. Each
@@ -28,10 +28,12 @@ the current catalog preserves them, but its `asset_paths` property resolves
 only top-level `weights`, `notes_file`, and `preview_image`.
 
 The notebook still uses its Python settings and does not read these manifests.
-The application catalog can discover and display them, but a MiniMax workflow
-is not registered for application generation yet. The component loading,
-H3-specific validation, and settings mapping need to be implemented there
-before the application can generate with this configuration.
+The application registers a `minimax` workflow for these manifests. It provides
+an H3-specific generation form/request preview and a catalog-backed CLI using
+native ComfyUI Python nodes. Component loading, multiple adapters, quantized
+transfer protection, H3 validation, and silent video export are implemented.
+See [MiniMax workflow setup and tests](../../../Documents/MiniMax_Workflow.md).
+The web interface remains a preview; use `scripts/generate_minimax.py` for generation.
 
 The adapter's 200 target matrix shapes match the local checkpoint. This does
 not establish successful full-video inference, so `verified_checkpoint_ids`

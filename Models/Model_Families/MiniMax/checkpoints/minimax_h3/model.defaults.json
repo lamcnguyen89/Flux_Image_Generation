@@ -10,7 +10,7 @@
   "source_url": null,
   "source_model_id": null,
   "source_version_id": null,
-  "weights": "../minimaxH3_comfy_3086249.safetensors",
+  "weights": "minimaxH3_comfy_3086249.safetensors",
   "sha256": null,
   "base_model_id": null,
   "notes_file": "../../README.md",

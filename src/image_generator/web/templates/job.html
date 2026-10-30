@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ status.model.name }} · Job{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('catalog.static', filename='jobs.css') }}">{% endblock %}
+{% block content %}
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="{{ url_for('jobs.index') }}">Generation jobs</a><span aria-hidden="true"> / </span><span aria-current="page">{{ job.id[:8] }}</span></nav>
+<div class="page-heading"><p class="eyebrow">{{ job.workflow | upper }} · {{ job.request.mode | mode_label }}</p><h1>{{ status.model.name }}</h1><p class="muted">Job <code>{{ job.id }}</code></p><a href="{{ url_for('generation.configure', model_id=status.model.id) }}">Configure another request</a></div>
+<div id="job-view" data-status-url="{{ url_for('jobs.status', job_id=job.id) }}" data-terminal="{{ 'true' if status.terminal else 'false' }}" data-output-ids="{{ status.outputs | map(attribute='id') | join(',') }}">
+  <section class="card job-panel" aria-labelledby="job-status-heading">
+    <div class="section-heading"><h2 id="job-status-heading">Job status</h2><span class="badge accent" id="job-state">{{ job.status | capitalize }}</span></div>
+    <p id="progress-stage" aria-live="polite">{{ status.progress.label }}</p>
+    <progress id="job-progress" aria-label="Current stage progress"{% if job.total and job.current is not none %} max="{{ job.total }}" value="{{ job.current }}"{% else %} max="1"{% if status.terminal %} value="0"{% endif %}{% endif %}></progress>
+    <p class="muted" id="progress-count">{{ status.progress.text }}</p>
+    <p class="worker-notice" id="worker-notice"{% if not status.worker_notice %} hidden{% endif %}>{{ status.worker_notice }}</p>
+    <p class="muted" id="connection-status" role="status">{{ 'Job finished.' if status.terminal else 'Live updates every second.' }}</p>
+    <a href="{{ url_for('jobs.detail', job_id=job.id) }}">Refresh status</a>
+  </section>
+  <section class="card job-panel job-error" id="job-error" role="alert"{% if not job.error %} hidden{% endif %}><h2>Generation could not complete</h2><p id="job-error-message">{{ job.error or '' }}</p></section>
+  <section class="card job-panel" aria-labelledby="outputs-heading"><h2 id="outputs-heading">Saved outputs</h2>
+    <p class="muted" id="outputs-empty"{% if status.outputs %} hidden{% endif %}>{{ 'No outputs were saved.' if status.terminal else 'Outputs will appear here when saved.' }}</p>
+    <div class="job-output-grid" id="job-outputs">{% for output in status.outputs %}<figure class="job-output" data-output-id="{{ output.id }}">
+      {% if output.kind == 'image' %}<a href="{{ output.url }}"><img src="{{ output.url }}" alt="Generated image, seed {{ output.seed }}"{% if output.width and output.height %} width="{{ output.width }}" height="{{ output.height }}"{% endif %} loading="lazy"></a>{% else %}<video src="{{ output.url }}" controls preload="metadata"></video>{% endif %}
+      <figcaption><p>Seed <code>{{ output.seed }}</code></p><div class="output-links"><a href="{{ output.url }}">View full output</a><a href="{{ output.download_url }}">Download</a><a href="{{ output.metadata_url }}">Metadata</a></div></figcaption>
+    </figure>{% endfor %}</div>
+  </section>
+  <section class="card job-panel"><h2>Execution history</h2><ol id="execution-events">{% for event in status.events %}<li>{{ event.label }}{% if event.text %} · {{ event.text }}{% endif %}</li>{% endfor %}</ol></section>
+  <section class="card job-panel"><h2>Submitted request</h2><p class="submitted-prompt">{{ job.request.prompt }}</p>
+    {% if job.request.loras %}<h3>Selected LoRAs</h3><ul>{% for item in job.request.loras %}<li>{{ item.asset.defaults.display_name }} · Strength {{ item.strength }}</li>{% endfor %}</ul>{% else %}<p class="muted">No LoRAs selected.</p>{% endif %}
+    <details><summary>Generation settings</summary><pre class="json-block">{{ job.request.settings | tojson(indent=2) }}</pre></details>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('catalog.static', filename='jobs.js') }}" defer></script>{% endblock %}

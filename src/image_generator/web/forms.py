@@ -68,7 +68,9 @@ def lora_options(catalog, model, settings, form=None):
         elif model.defaults["workflow"] == "wan":
             if variant != model.defaults.get("model_variant") or target not in {"high_noise", "low_noise"}:
                 reason = "Set the WAN model variant and high-noise or low-noise expert target before use."
-        if reason and asset.id not in links and not (asset.family == model.family and model.family == "wan"):
+        elif model.defaults["workflow"] == "minimax" and variant != "minimax_h3":
+            reason = "Record explicit MiniMax H3 compatibility before using this adapter."
+        if reason and asset.id not in links and not (asset.family == model.family and model.family in {"wan", "minimax"}):
             continue
         resolved = asset.resolve_settings()
         link = links.get(asset.id, {})

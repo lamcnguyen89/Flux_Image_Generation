@@ -22,8 +22,8 @@ Choose **Configure generation** to edit SDXL, FLUX, or WAN settings and preview
 the typed request. For a demo without weights or a GPU, run
 `IMAGE_GENERATOR_CATALOG_ROOT=tests/fixtures/model_families .venv/bin/python main.py`.
 See [generation UI testing](Documents/Generation_UI.md) for the workflow contract,
-fixture pages, and automated/manual checks. This stage previews forms; generation
-and settings persistence will be connected separately.
+fixture pages, and automated/manual checks. SDXL also supports queue submission
+and live progress; settings persistence remains a separate feature.
 
 Catalog loading automatically creates missing model/LoRA defaults from the
 family's example JSON and missing user files with empty overrides. Existing
@@ -61,3 +61,22 @@ for family-specific settings, adapters, and Python APIs.
 
 See [environment setup](Documents/Setup.md) for the shared requirements, project
 virtual environment, GPU dependency setup, and validation commands.
+
+MiniMax H3 uses the same catalog, UI contract, LoRA selection, and generation
+request API through its native ComfyUI adapter. Start with a validated request:
+
+```bash
+.venv/bin/python scripts/generate_minimax.py \
+  --input-image Images/input.png --prompt "A gentle camera movement" --seed 42 --dry-run
+```
+
+See [MiniMax setup, generation, and tests](Documents/MiniMax_Workflow.md) for its
+ComfyUI runtime, component requirements, fixture form, and silent MP4 outputs.
+
+The shared durable queue and worker lifecycle are implemented. Start a dedicated
+worker with `.venv/bin/python scripts/run_worker.py`, or test two queued fake
+workflows producing small PNGs with `.venv/bin/python tests/demo_queue.py`.
+See [queue usage, recovery, and tests](Documents/Worker_Queue.md). SDXL web forms
+now submit jobs, show loading and denoising progress, and display saved images.
+Run the Flask app and worker in separate terminals; see
+[SDXL execution and GPU testing](Documents/SDXL_UI_Execution.md).

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Generation jobs{% endblock %}
+{% block content %}
+<div class="page-heading"><p class="eyebrow">Generation queue</p><h1>Generation jobs</h1><p class="muted">Open a job to follow its progress and view saved outputs. Showing the latest 50 jobs.</p><a href="{{ url_for('catalog.index') }}">Choose a model</a></div>
+{% if jobs %}
+<div class="card table-scroll"><table><thead><tr><th scope="col">Model</th><th scope="col">Status</th><th scope="col">Progress</th><th scope="col">Outputs</th></tr></thead>
+<tbody>{% for job in jobs %}<tr><th scope="row"><a href="{{ url_for('jobs.detail', job_id=job.id) }}">{{ job.request.model.defaults.display_name }}</a><br><code>{{ job.id[:8] }}</code></th><td>{{ job.status | capitalize }}</td><td>{{ stage_label(job.stage) }}{% if job.stage == 'denoising' and job.total %}<br>Step {{ job.current }} of {{ job.total }}{% endif %}</td><td>{{ job.outputs | length }}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}<section class="card empty-state"><h2>No jobs yet</h2><p class="muted">Choose an SDXL model and select Generate images to submit your first job.</p></section>{% endif %}
+{% endblock %}

@@ -1,4 +1,4 @@
-"""Shared CLI wiring for catalog-backed FLUX and WAN generation."""
+"""Shared CLI wiring for catalog-backed FLUX, WAN, and MiniMax generation."""
 
 import argparse
 import json
@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MODEL_IDS = {
     "flux": "model_6e8d8d55-6a4b-4cf9-b91b-3a4a5beaab1f",
     "wan": "model_95f8fb96-fc3b-4cf3-8b6f-e95e8cb5209b",
+    "minimax": "model_b065ec3d-cd27-4cb3-bcab-48797bee8b6b",
 }
 
 
@@ -41,8 +42,8 @@ def lora_value(value):
 
 
 def run_family(family, argv=None):
-    video = family == "wan"
-    parser = argparse.ArgumentParser(description=f"Generate {'WAN videos' if video else 'FLUX images'} from catalog settings.")
+    video = family in {"wan", "minimax"}
+    parser = argparse.ArgumentParser(description=f"Generate {family.upper()} {'videos' if video else 'images'} from catalog settings.")
     parser.add_argument("--root", type=Path, default=PROJECT_ROOT / "Models/Model_Families")
     parser.add_argument("--model-id", default=MODEL_IDS[family])
     parser.add_argument("--prompt", required=True)
@@ -57,16 +58,21 @@ def run_family(family, argv=None):
         parser.add_argument("--num-videos", dest="num_videos_per_prompt", type=int, default=1)
         parser.add_argument("--frames", dest="num_frames", type=int, default=argparse.SUPPRESS)
         parser.add_argument("--fps", type=float, default=argparse.SUPPRESS)
-        parser.add_argument("--guidance-2", dest="guidance_scale_2", type=float, default=argparse.SUPPRESS)
+        if family == "wan":
+            parser.add_argument("--guidance-2", dest="guidance_scale_2", type=float, default=argparse.SUPPRESS)
+            fields.append("guidance_scale_2")
         parser.add_argument("--preserve-aspect-ratio", action=argparse.BooleanOptionalAction, default=argparse.SUPPRESS)
         parser.add_argument("--vae-tiling", dest="enable_vae_tiling", action=argparse.BooleanOptionalAction, default=argparse.SUPPRESS)
-        fields.extend(("num_videos_per_prompt", "num_frames", "fps", "guidance_scale_2", "preserve_aspect_ratio", "enable_vae_tiling"))
+        fields.extend(("num_videos_per_prompt", "num_frames", "fps", "preserve_aspect_ratio", "enable_vae_tiling"))
     else:
         parser.add_argument("--num-images", dest="num_images_per_prompt", type=int, default=1)
         parser.add_argument("--true-cfg-scale", type=float, default=argparse.SUPPRESS)
         parser.add_argument("--max-sequence-length", type=int, default=argparse.SUPPRESS)
         fields.extend(("num_images_per_prompt", "true_cfg_scale", "max_sequence_length"))
-    parser.add_argument("--sampler", choices=["model_default"] if video else ["flow_match_euler", "model_default"])
+    samplers = {"wan": ["model_default"], "minimax": ["res_multistep"], "flux": ["flow_match_euler", "model_default"]}
+    parser.add_argument("--sampler", choices=samplers[family])
+    if family == "minimax":
+        parser.add_argument("--comfyui-dir", type=Path, help="ComfyUI checkout with native H3 support (default: build/ComfyUI)")
     adapters = parser.add_mutually_exclusive_group()
     adapters.add_argument("--lora", type=lora_value, action="append", metavar="ID[:STRENGTH]")
     adapters.add_argument("--no-loras", action="store_true")
@@ -106,11 +112,13 @@ def run_family(family, argv=None):
         cache_root = Path(os.getenv("CACHE_LOCATION") or PROJECT_ROOT / "Models").expanduser()
         if not cache_root.is_absolute():
             cache_root = PROJECT_ROOT / cache_root
+        runtime_options = {"comfyui_dir": args.comfyui_dir} if family == "minimax" else {}
         outputs = run_generation(
             request, args.output_dir, device=args.device, dtype=args.dtype,
             cache_dir=args.cache_dir if args.cache_dir is not None else cache_root / "hub",
             local_files_only=args.local_files_only,
             token=os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_TOKEN") or None,
+            **runtime_options,
         )
         for output in outputs:
             if isinstance(output, SavedVideo):

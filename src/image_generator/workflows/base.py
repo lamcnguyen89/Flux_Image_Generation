@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from collections.abc import Callable
 
 from image_generator.catalog import CatalogAsset
 from .ui import UIDefinition
@@ -51,9 +52,25 @@ class SavedVideo:
     conditioning_path: Path
 
 
+@dataclass(frozen=True)
+class WorkflowProgress:
+    stage: str
+    current: int | None = None
+    total: int | None = None
+
+
 class Workflow(ABC):
     defaults: dict[str, Any]
     ui_modes: tuple[str, ...] = ()
+
+    def set_progress_callback(self, callback: Callable[[WorkflowProgress], None] | None) -> None:
+        """Attach a process-local observer; callbacks are never request settings."""
+        self._progress_callback = callback
+
+    def report_progress(self, stage: str, current=None, total=None) -> None:
+        callback = getattr(self, "_progress_callback", None)
+        if callback is not None:
+            callback(WorkflowProgress(stage, current, total))
 
     def get_ui_definition(self, model: CatalogAsset, mode: str) -> UIDefinition:
         """Describe controls without loading weights; current values are separate."""

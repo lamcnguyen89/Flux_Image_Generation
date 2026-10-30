@@ -8,7 +8,7 @@
   "source_url": null,
   "source_model_id": null,
   "source_version_id": null,
-  "weights": "../Minimax_H3_Unlocked_V2.1.safetensors",
+  "weights": "Minimax_H3_Unlocked_V2.1.safetensors",
   "sha256": null,
   "notes_file": "../../README.md",
   "preview_image": null,

@@ -25,6 +25,7 @@ class UIField:
     step: int | float | None = None
     choices: tuple[tuple[str, str], ...] = ()
     scope: Literal["settings", "inputs"] = "settings"
+    read_only: bool = False
 
     def validate(self, value: Any) -> str | None:
         if value is None and self.nullable:
@@ -156,19 +157,19 @@ def definition(model, mode, *, workflow, fields, supported_modes, partial=None, 
     return UIDefinition(workflow, mode, modes, tuple(fields), partial)
 
 
-def frame_constraints(requirements: dict) -> tuple[int, int]:
-    """Combine the checkpoint congruence with WAN's 4*n+1 rule for HTML inputs."""
-    rule = requirements.get("frame_count", {"minimum": 5, "step": 4, "offset": 1})
+def frame_constraints(requirements: dict, *, native_step=4, native_offset=1) -> tuple[int, int]:
+    """Combine checkpoint and native frame congruences (WAN by default)."""
+    rule = requirements.get("frame_count", {"minimum": 5, "step": native_step, "offset": native_offset})
     if (not isinstance(rule, dict)
             or any(type(rule.get(key)) is not int for key in ("minimum", "step", "offset"))
             or rule["step"] <= 0 or rule["minimum"] < 1):
         raise ValueError("requirements.frame_count needs integer minimum, positive step, and offset")
-    divisor = math.gcd(4, rule["step"])
-    if (rule["offset"] - 1) % divisor:
-        raise ValueError("The checkpoint frame_count rule cannot satisfy WAN's 4*n+1 constraint")
+    divisor = math.gcd(native_step, rule["step"])
+    if (rule["offset"] - native_offset) % divisor:
+        raise ValueError("The checkpoint frame_count rule cannot satisfy the workflow's native frame constraint")
     modulus = rule["step"] // divisor
-    index = ((rule["offset"] - 1) // divisor * pow(4 // divisor, -1, modulus)) % modulus
-    first, step = 1 + 4 * index, math.lcm(4, rule["step"])
+    index = ((rule["offset"] - native_offset) // divisor * pow(native_step // divisor, -1, modulus)) % modulus
+    first, step = native_offset + native_step * index, math.lcm(native_step, rule["step"])
     minimum = max(5, rule["minimum"])
     first += max(0, (minimum - first + step - 1) // step) * step
     return first, step
