@@ -91,3 +91,5 @@ H3 controls, native ComfyUI progress, runtime options, and GPU checks.
 Start both in one terminal with `bash scripts/start.sh` (automatically uses
 `.venv`); Ctrl+C stops the web app and lets an active generation finish. See
 [SDXL execution and GPU testing](Documents/SDXL_UI_Execution.md).
+To run the same launcher automatically at boot, install the single
+[systemd service](systemd/README.md).

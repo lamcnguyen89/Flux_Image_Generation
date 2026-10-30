@@ -10,6 +10,8 @@ catalog_bp = Blueprint(
     static_folder="static", static_url_path="/catalog-assets",
 )
 
+FAMILY_ORDER = {"flux": 0, "sdxl": 1, "minimax": 2, "wan": 3}
+
 
 def get_catalog():
     """Discover once per request so the next refresh sees manifest edits."""
@@ -30,7 +32,10 @@ def mode_label(mode):
 def index():
     catalog = get_catalog()
     groups = {}
-    for model in sorted(catalog.models.values(), key=lambda item: (item.family, item.display_name.casefold(), item.id)):
+    for model in sorted(catalog.models.values(), key=lambda item: (
+        FAMILY_ORDER.get(item.family, len(FAMILY_ORDER)),
+        item.family, item.display_name.casefold(), item.id,
+    )):
         group = groups.setdefault(model.family, {"name": model.family, "models": [], "lora_count": 0})
         group["models"].append(model)
     for lora in catalog.loras.values():

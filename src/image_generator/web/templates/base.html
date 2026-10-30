@@ -5,14 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Model catalog{% endblock %} · Image Generator</title>
   <link rel="stylesheet" href="{{ url_for('catalog.static', filename='catalog.css') }}">
+  <script src="{{ url_for('catalog.static', filename='navigation.js') }}" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
-    <a class="brand" href="{{ url_for('catalog.index') }}">Image Generator</a>
-    <a href="{{ url_for('jobs.index') }}">Jobs</a>
-    <span class="badge">Local model library</span>
+    <a class="brand" href="{{ url_for('catalog.index') }}">Midnight Generator</a>
+    <details class="header-menu">
+      <summary>Menu</summary>
+      <nav class="header-menu-links" aria-label="Main navigation">
+        <a href="{{ url_for('catalog.index') }}"{% if request.endpoint == 'catalog.index' %} aria-current="page"{% endif %}>Model Catalog</a>
+        <a href="{{ url_for('jobs.index') }}"{% if request.endpoint == 'jobs.index' %} aria-current="page"{% endif %}>Generation History</a>
+      </nav>
+    </details>
   </header>
   <main id="main" tabindex="-1">{% block content %}{% endblock %}</main>
   <footer>Image Generator · Model catalog</footer>

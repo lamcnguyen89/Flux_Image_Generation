@@ -1,0 +1,20 @@
+[Unit]
+Description=Image Generator web server and generation worker
+Wants=network-online.target
+After=network-online.target avahi-daemon.service
+
+[Service]
+Type=exec
+User=malneyugnfl
+WorkingDirectory=/home/malneyugnfl/SoftwareDev/Image_Generator
+ExecStart=/bin/bash /home/malneyugnfl/SoftwareDev/Image_Generator/scripts/start.sh
+Restart=on-failure
+RestartSec=5s
+# start.sh returns 128 + SIGTERM after a graceful shutdown.
+SuccessExitStatus=143
+# Let the launcher stop its children so active encoders can finish normally.
+KillMode=mixed
+TimeoutStopSec=30min
+
+[Install]
+WantedBy=multi-user.target

@@ -25,6 +25,15 @@ pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .site-header, main, footer { width: min(1120px, calc(100% - 3rem)); margin-inline: auto; }
 .site-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-block: 1.3rem; border-bottom: 1px solid var(--border); }
 .brand { color: var(--text); font-weight: 700; text-decoration: none; }
+.header-menu { position: relative; flex-shrink: 0; }
+.header-menu > summary { display: flex; align-items: center; gap: .75rem; list-style: none; padding: .5rem .85rem; color: var(--text); border: 1px solid var(--border); border-radius: 5px; }
+.header-menu > summary::-webkit-details-marker { display: none; }
+.header-menu > summary::after { content: "▾"; color: var(--accent); }
+.header-menu[open] > summary, .header-menu > summary:hover { background: var(--panel); border-color: var(--accent); }
+.header-menu-links { position: absolute; top: calc(100% + .5rem); right: 0; z-index: 10; width: max-content; max-width: calc(100vw - 2rem); padding: .35rem; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px #0006; }
+.header-menu-links a { display: block; padding: .6rem .85rem; border-radius: 4px; color: var(--text); text-decoration: none; }
+.header-menu-links a:hover, .header-menu-links a[aria-current="page"] { background: var(--background); color: var(--accent); }
+.header-menu-links a:focus-visible { outline-offset: -2px; }
 main { padding-block: 2.5rem 4rem; }
 footer { color: var(--muted); border-top: 1px solid var(--border); padding-block: 1.2rem; font-size: .8rem; }
 .muted { color: var(--muted); }
@@ -85,7 +94,6 @@ summary { cursor: pointer; padding-block: .85rem; font-size: .9rem; color: var(-
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 600px) {
   .site-header, main, footer { width: calc(100% - 2rem); }
-  .site-header > .badge { display: none; }
   main { padding-top: 1.7rem; }
   .metadata { grid-template-columns: 1fr; }
   th, td { padding: .75rem; }
