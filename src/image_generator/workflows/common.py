@@ -138,6 +138,7 @@ class TransformerWorkflow(Workflow):
         self._has_adapters = False
 
     def _load_runtime(self):
+        self.report_progress("loading_runtime")
         if self._torch is None:
             self._torch = import_module("torch")
         if self.device.startswith("cuda"):
@@ -162,7 +163,9 @@ class TransformerWorkflow(Workflow):
     def _ensure_pipeline(self, request, fingerprint):
         key = (request.model.id, request.model.defaults.get("base_model_id"), fingerprint)
         if self._pipeline is not None and self._model_key == key:
+            self.report_progress("reusing_model")
             return
+        self.report_progress("switching_model" if self._pipeline is not None else "loading_model")
         self.close()
         self._pipeline = self._build_pipeline(request)
         self._pipeline.to(self.device)
@@ -177,11 +180,13 @@ class TransformerWorkflow(Workflow):
         )
 
     def _configure_loras(self, request, *, restore_overwritten=False, targeted=False):
+        self.report_progress("resetting_loras")
         if self._has_adapters:
             options = {"reset_to_overwritten_params": True} if restore_overwritten else {}
             self._pipeline.unload_lora_weights(**options)
             self._has_adapters = False
-        for selection in request.loras:
+        self.report_progress("loading_loras", 0, len(request.loras))
+        for index, selection in enumerate(request.loras):
             self._has_adapters = True
             path = selection.asset.asset_paths["weights"]
             options = {}
@@ -194,6 +199,7 @@ class TransformerWorkflow(Workflow):
                 )
             except Exception as exc:
                 raise RuntimeError(f"Could not load LoRA {selection.asset.id!r}; check model and loader compatibility: {exc}") from exc
+            self.report_progress("loading_loras", index + 1, len(request.loras))
         if targeted:
             for target, component in (("high_noise", "transformer"), ("low_noise", "transformer_2")):
                 selections = [item for item in request.loras if item.asset.defaults["compatibility"]["expert_target"] == target]
@@ -205,6 +211,7 @@ class TransformerWorkflow(Workflow):
             self._pipeline.set_adapters(
                 [item.adapter_name for item in request.loras], adapter_weights=[float(item.strength) for item in request.loras],
             )
+        self.report_progress("loras_ready", len(request.loras), len(request.loras))
 
     def _synchronize(self):
         if self.device.startswith("cuda"):

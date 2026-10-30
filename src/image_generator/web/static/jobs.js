@@ -24,7 +24,12 @@ if (jobView) {
     const ids = outputs.map((output) => output.id).join(",");
     if (ids === outputIds) return;
     outputIds = ids;
-    const figures = outputs.map((output) => {
+    const grid = document.getElementById("job-outputs");
+    const existing = new Map(Array.from(grid.children, (figure) => [figure.dataset.outputId, figure]));
+    const idsToKeep = new Set(outputs.map((output) => output.id));
+    existing.forEach((figure, id) => { if (!idsToKeep.has(id)) figure.remove(); });
+    outputs.forEach((output) => {
+      if (existing.has(output.id)) return;
       const figure = document.createElement("figure");
       figure.className = "job-output";
       figure.dataset.outputId = output.id;
@@ -44,7 +49,12 @@ if (jobView) {
         const video = document.createElement("video");
         video.src = output.url;
         video.controls = true;
+        video.playsInline = true;
         video.preload = "metadata";
+        if (output.width > 0 && output.height > 0) {
+          video.width = output.width;
+          video.height = output.height;
+        }
         figure.append(video);
       }
       const caption = document.createElement("figcaption");
@@ -54,10 +64,35 @@ if (jobView) {
       links.className = "output-links";
       links.append(link("View full output", output.url), link("Download", output.download_url), link("Metadata", output.metadata_url));
       caption.append(seed, links);
+      if (output.kind === "video") {
+        const details = document.createElement("p");
+        details.className = "video-details";
+        const values = [];
+        if (output.width && output.height) values.push(`${output.width} × ${output.height}`);
+        if (output.frame_count) values.push(`${output.frame_count} frames`);
+        if (output.fps) values.push(`${output.fps} FPS`);
+        if (Number.isFinite(output.duration_seconds)) values.push(`${output.duration_seconds.toFixed(2)} seconds`);
+        details.textContent = values.join(" · ");
+        caption.insertBefore(details, links);
+      }
+      if (output.conditioning_url) {
+        links.append(link("Conditioning image", output.conditioning_url));
+        const preview = document.createElement("details");
+        preview.className = "conditioning-preview";
+        const summary = document.createElement("summary");
+        summary.textContent = "Exact conditioning image";
+        const image = document.createElement("img");
+        image.src = output.conditioning_url;
+        image.alt = "Resized and cropped conditioning image";
+        image.loading = "lazy";
+        const full = link("", output.conditioning_url);
+        full.append(image);
+        preview.append(summary, full);
+        caption.append(preview);
+      }
       figure.append(caption);
-      return figure;
+      grid.append(figure);
     });
-    document.getElementById("job-outputs").replaceChildren(...figures);
   };
 
   const render = (job) => {
@@ -65,6 +100,7 @@ if (jobView) {
     document.getElementById("job-state").textContent = job.status[0].toUpperCase() + job.status.slice(1);
     document.getElementById("progress-stage").textContent = job.progress.label;
     document.getElementById("progress-count").textContent = job.progress.text;
+    document.getElementById("progress-completion").textContent = job.progress.completion_text;
     const progress = document.getElementById("job-progress");
     if (job.progress.total > 0 && job.progress.current !== null) {
       progress.max = job.progress.total;

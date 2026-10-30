@@ -9,6 +9,9 @@
 .job-output img, .job-output video { display: block; width: 100%; height: auto; max-height: 600px; object-fit: contain; border-radius: 6px; background: var(--background); }
 .job-output figcaption { padding-top: .7rem; }
 .job-output figcaption p { margin-bottom: .5rem; }
+.job-source { display: block; max-width: 100%; max-height: 360px; object-fit: contain; }
+.conditioning-preview { margin-top: .7rem; }
+.conditioning-preview img { margin-top: .5rem; }
 .output-links { display: flex; flex-wrap: wrap; gap: .6rem 1rem; font-size: .85rem; }
 #execution-events { padding-left: 1.4rem; margin-bottom: 0; }
 .submitted-prompt { white-space: pre-wrap; overflow-wrap: anywhere; }

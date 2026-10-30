@@ -10,16 +10,23 @@
     <p id="progress-stage" aria-live="polite">{{ status.progress.label }}</p>
     <progress id="job-progress" aria-label="Current stage progress"{% if job.total and job.current is not none %} max="{{ job.total }}" value="{{ job.current }}"{% else %} max="1"{% if status.terminal %} value="0"{% endif %}{% endif %}></progress>
     <p class="muted" id="progress-count">{{ status.progress.text }}</p>
+    <p class="muted" id="progress-completion">{{ status.progress.completion_text }}</p>
+    {% if status.video_count %}<p class="field-help">Steps show denoising progress for the active video. Loading, decoding, and encoding also take time.</p>{% endif %}
     <p class="worker-notice" id="worker-notice"{% if not status.worker_notice %} hidden{% endif %}>{{ status.worker_notice }}</p>
     <p class="muted" id="connection-status" role="status">{{ 'Job finished.' if status.terminal else 'Live updates every second.' }}</p>
     <a href="{{ url_for('jobs.detail', job_id=job.id) }}">Refresh status</a>
   </section>
   <section class="card job-panel job-error" id="job-error" role="alert"{% if not job.error %} hidden{% endif %}><h2>Generation could not complete</h2><p id="job-error-message">{{ job.error or '' }}</p></section>
+  {% if status.source_url %}<section class="card job-panel"><h2>Uploaded source</h2><a href="{{ status.source_url }}"><img class="job-source" src="{{ status.source_url }}" alt="Original uploaded source image"></a></section>{% endif %}
   <section class="card job-panel" aria-labelledby="outputs-heading"><h2 id="outputs-heading">Saved outputs</h2>
     <p class="muted" id="outputs-empty"{% if status.outputs %} hidden{% endif %}>{{ 'No outputs were saved.' if status.terminal else 'Outputs will appear here when saved.' }}</p>
     <div class="job-output-grid" id="job-outputs">{% for output in status.outputs %}<figure class="job-output" data-output-id="{{ output.id }}">
-      {% if output.kind == 'image' %}<a href="{{ output.url }}"><img src="{{ output.url }}" alt="Generated image, seed {{ output.seed }}"{% if output.width and output.height %} width="{{ output.width }}" height="{{ output.height }}"{% endif %} loading="lazy"></a>{% else %}<video src="{{ output.url }}" controls preload="metadata"></video>{% endif %}
-      <figcaption><p>Seed <code>{{ output.seed }}</code></p><div class="output-links"><a href="{{ output.url }}">View full output</a><a href="{{ output.download_url }}">Download</a><a href="{{ output.metadata_url }}">Metadata</a></div></figcaption>
+      {% if output.kind == 'image' %}<a href="{{ output.url }}"><img src="{{ output.url }}" alt="Generated image, seed {{ output.seed }}"{% if output.width and output.height %} width="{{ output.width }}" height="{{ output.height }}"{% endif %} loading="lazy"></a>{% else %}<video src="{{ output.url }}" controls playsinline preload="metadata"{% if output.width and output.height %} width="{{ output.width }}" height="{{ output.height }}"{% endif %}></video>{% endif %}
+      <figcaption><p>Seed <code>{{ output.seed }}</code></p>
+        {% if output.kind == 'video' %}<p class="video-details">{% if output.width and output.height %}{{ output.width }} × {{ output.height }}{% endif %}{% if output.frame_count %} · {{ output.frame_count }} frames{% endif %}{% if output.fps %} · {{ '%g' | format(output.fps) }} FPS{% endif %}{% if output.duration_seconds is number %} · {{ '%.2f' | format(output.duration_seconds) }} seconds{% endif %}</p>{% endif %}
+        <div class="output-links"><a href="{{ output.url }}">View full output</a><a href="{{ output.download_url }}">Download</a><a href="{{ output.metadata_url }}">Metadata</a>{% if output.conditioning_url %}<a href="{{ output.conditioning_url }}">Conditioning image</a>{% endif %}</div>
+        {% if output.conditioning_url %}<details class="conditioning-preview"><summary>Exact conditioning image</summary><a href="{{ output.conditioning_url }}"><img src="{{ output.conditioning_url }}" alt="Resized and cropped conditioning image" loading="lazy"></a></details>{% endif %}
+      </figcaption>
     </figure>{% endfor %}</div>
   </section>
   <section class="card job-panel"><h2>Execution history</h2><ol id="execution-events">{% for event in status.events %}<li>{{ event.label }}{% if event.text %} · {{ event.text }}{% endif %}</li>{% endfor %}</ol></section>

@@ -264,7 +264,7 @@ class SDXLExecutionTests(unittest.TestCase):
             self.assertEqual(self.client.get("/jobs").status_code, 503)
 
     def test_other_families_remain_preview_only(self):
-        for family in ("flux", "wan", "minimax"):
+        for family in ("flux", "minimax"):
             response = self.client.get(f"/generate/fixture-{family}")
             self.assertNotIn('value="generate"', response.get_data(as_text=True))
             data = FormPage(response.get_data(as_text=True)).data()

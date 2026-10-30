@@ -8,13 +8,14 @@
 <div class="page-heading">
   <div class="badges"><span class="badge">{{ model.family | upper }}</span><span class="badge accent">{{ 'Generation' if can_generate else 'Form preview' }}</span></div>
   <h1>{{ model.display_name }}</h1>
-  <p class="muted">{% if can_generate %}Configure your images, then submit them to the generation queue.{% else %}Configure your {{ 'video' if ui.mode == 'img2vid' else 'image' }}. Preview the request before generation is connected.{% endif %}</p>
+  <p class="muted">{% if can_generate %}Configure your {{ 'videos' if ui.mode == 'img2vid' else 'images' }}, then submit them to the generation queue.{% else %}Configure your {{ 'video' if ui.mode == 'img2vid' else 'image' }}. Preview the request before generation is connected.{% endif %}</p>
   <a href="{{ url_for('catalog.index') }}">Choose another model</a>
 </div>
 {% if errors %}
 <section class="card form-errors" role="alert" aria-labelledby="errors-heading"><h2 id="errors-heading">Check these values</h2><ul>{% for name, message in errors.items() %}<li><strong>{{ name }}</strong>: {{ message }}</li>{% endfor %}</ul></section>
 {% endif %}
 {% if settings_notice %}<p class="preview-success" role="status">{{ settings_notice }}</p>{% endif %}
+{% if request.method == 'POST' and ui.mode == 'img2vid' and request.form.get('action', 'preview') in ['preview', 'generate'] %}<p class="worker-notice" role="status">Select your source image again before submitting. Browsers clear file selections after a preview or validation response.</p>{% endif %}
 <form method="post" action="{{ url_for('generation.configure', model_id=model.id) }}" enctype="multipart/form-data" id="generation-form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="submission_key" value="{{ submission_key }}">
@@ -40,8 +41,8 @@
     </div>
     <aside class="generation-review" aria-labelledby="review-heading">
       <section class="card form-section">
-        <p class="eyebrow">Review configuration</p><h2 id="review-heading">{{ 'Generate images' if can_generate else 'Request preview' }}</h2>
-        {% if can_generate %}<p class="muted">Your request joins the queue. Follow loading and denoising progress on its job page.</p><button type="submit" name="action" value="generate" class="primary-button">Generate images</button>{% endif %}
+        <p class="eyebrow">Review configuration</p><h2 id="review-heading">{{ ('Generate video' if ui.mode == 'img2vid' else 'Generate images') if can_generate else 'Request preview' }}</h2>
+        {% if can_generate %}<p class="muted">Your request joins the queue. Follow loading and denoising progress on its job page.</p><button type="submit" name="action" value="generate" class="primary-button">{{ 'Generate video' if ui.mode == 'img2vid' else 'Generate images' }}</button>{% endif %}
         <p class="field-help">Preview checks your form values without starting generation or saving settings.</p>
         <button type="submit" name="action" value="preview" class="{{ 'secondary-button' if can_generate else 'primary-button' }}">Preview request</button>
         <button type="submit" name="action" value="save_model" formaction="{{ url_for('settings.model_settings', model_id=model.id) }}" formnovalidate class="secondary-button">Save model settings</button>

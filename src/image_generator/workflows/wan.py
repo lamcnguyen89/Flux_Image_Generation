@@ -63,7 +63,7 @@ class WanWorkflow(TransformerWorkflow):
         return definition(model, mode, workflow="wan", supported_modes=self.ui_modes,
                           variant="wan_2_2_i2v_a14b", partial="controls/wan.html", fields=(
             UIField("input_image", "Source image", "file", "Source image", scope="inputs", required=True,
-                    help="Select an image for this preview. Files are not saved; select it again after submitting."),
+                    help="Choose the image to animate. Generation saves the original with the queued job. Select it again after a preview or validation response."),
             *common_fields(model, video=True),
             UIField("preserve_aspect_ratio", "Preserve source aspect ratio", "boolean", "Output",
                     help="Width and height set the pixel budget; actual dimensions follow the source image."),
@@ -167,6 +167,7 @@ class WanWorkflow(TransformerWorkflow):
             check_video_encoder()
             self._load_runtime()
             self._ensure_pipeline(request, self._pipeline_fingerprint(request.model.asset_paths["weights"]))
+            self.report_progress("conditioning_image")
             conditioning = self._prepare_conditioning(source, request)
             self._configure_loras(request, targeted=True)
             tiling = self._pipeline.vae.enable_tiling if request.settings["enable_vae_tiling"] else self._pipeline.vae.disable_tiling
@@ -175,14 +176,25 @@ class WanWorkflow(TransformerWorkflow):
             arguments.update(height=conditioning.height, width=conditioning.width, num_videos_per_prompt=1, output_type="np")
             seeds = image_seeds(request.settings, request.settings["num_videos_per_prompt"])
             for index, seed in enumerate(seeds):
+                self.report_progress("video_variation", index + 1, len(seeds))
                 self._configure_scheduler(request)
                 generator = self._torch.Generator(device=self.device).manual_seed(seed)
                 self._synchronize()
                 start = perf_counter()
+                steps = request.settings["num_inference_steps"]
+                self.report_progress("denoising", 0, steps)
+
+                def on_step_end(pipe, step, timestep, tensors):
+                    total = getattr(pipe, "num_timesteps", steps)
+                    self.report_progress("denoising", step + 1, total)
+                    if step + 1 == total:
+                        self.report_progress("decoding_video")
+                    return tensors
+
                 with self._torch.inference_mode():
                     frames = self._pipeline(
                         image=conditioning, prompt=request.prompt, negative_prompt=request.negative_prompt,
-                        generator=generator, **arguments,
+                        generator=generator, callback_on_step_end=on_step_end, **arguments,
                     ).frames[0]
                 self._synchronize()
                 elapsed = perf_counter() - start

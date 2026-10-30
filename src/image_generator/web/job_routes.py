@@ -1,6 +1,7 @@
 """Persistent job pages, polling, and registered output serving; no GPU imports."""
 
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 import sqlite3
 
@@ -18,6 +19,8 @@ STAGE_LABELS = {
     "reusing_model": "Reusing loaded checkpoint", "resetting_loras": "Clearing previous LoRAs",
     "loading_loras": "Loading selected LoRAs", "loras_ready": "LoRAs configured",
     "denoising": "Denoising", "decoding": "Decoding images", "saving": "Saving outputs",
+    "conditioning_image": "Preparing conditioning image", "video_variation": "Generating video variation",
+    "decoding_video": "Decoding video", "encoding_video": "Encoding and saving video",
     "completed": "Completed", "failed": "Failed", "interrupted": "Interrupted",
 }
 
@@ -55,9 +58,11 @@ def progress_text(stage, current, total):
         return ""
     if stage == "denoising" and total:
         return f"Step {current} of {total}"
+    if stage == "video_variation":
+        return f"Video {current} of {total}"
     if stage in {"loading_loras", "loras_ready"}:
         return f"{current} of {total} adapters" if total else "No adapters selected"
-    if stage in {"saving", "completed", "failed", "interrupted"}:
+    if stage in {"saving", "encoding_video", "completed", "failed", "interrupted"}:
         return f"{current} output(s) saved"
     return ""
 
@@ -83,19 +88,45 @@ def job_payload(job):
     ) else {}
 
     def output_payload(output):
+        details = {}
+        if output.kind == "video":
+            path = output_path(job, output.metadata_path)
+            if path:
+                try:
+                    metadata = json.loads(path.read_text(encoding="utf-8"))
+                    details = metadata.get("output_video", {})
+                    if not details:
+                        generated = metadata.get("generation_settings", {})
+                        details = {"width": generated.get("width"), "height": generated.get("height"),
+                                   "frame_count": metadata.get("frame_count"),
+                                   "fps": metadata.get("settings", {}).get("fps"),
+                                   "duration_seconds": metadata.get("duration_seconds")}
+                except (ValueError, OSError):
+                    pass
         return {
             "id": output.id, "kind": output.kind, "seed": str(output.seed),
-            **dimensions,
+            **(details if output.kind == "video" else dimensions),
             "url": url_for("jobs.output", job_id=job.id, output_id=output.id, part="media"),
             "download_url": url_for("jobs.output", job_id=job.id, output_id=output.id, part="media", download=1),
             "metadata_url": url_for("jobs.output", job_id=job.id, output_id=output.id, part="metadata", download=1),
+            "conditioning_url": url_for("jobs.output", job_id=job.id, output_id=output.id, part="conditioning")
+                                if output.conditioning_path else None,
         }
+    from .uploads import managed_source_path
+
+    video_count = settings.get("num_videos_per_prompt")
+    variation = next((event for event in reversed(job.events) if event.stage == "video_variation"), None)
+    completion_text = f"{len(job.outputs)} of {video_count} videos saved" if video_count else ""
+    if variation and job.status == "running":
+        completion_text += f" · Video {variation.current} of {variation.total}"
     return {
         "id": job.id, "model": {"id": model["id"], "name": model["display_name"]},
         "workflow": job.workflow, "mode": job.request["mode"], "status": job.status,
         "terminal": job.status in TERMINAL, "error": job.error,
         "progress": {"stage": job.stage, "label": stage_label(job.stage), "current": job.current, "total": job.total,
-                     "text": progress_text(job.stage, job.current, job.total)},
+                     "text": progress_text(job.stage, job.current, job.total),
+                     "completion_text": completion_text},
+        "source_url": url_for("jobs.source", job_id=job.id) if managed_source_path(job) else None,
         "worker_notice": worker_notice(get_job_store(), job),
         "events": [{"stage": event.stage, "label": stage_label(event.stage),
                     "current": event.current, "total": event.total,
@@ -103,7 +134,33 @@ def job_payload(job):
         "outputs": [output_payload(output) for output in job.outputs],
         "created_at": job.created_at, "started_at": job.started_at, "finished_at": job.finished_at,
         "image_count": settings.get("num_images_per_prompt"),
+        "video_count": video_count,
     }
+
+
+def output_path(job, path):
+    """Constrain reads, including metadata reads, to this job's output directory."""
+    root = Path(current_app.config["JOB_OUTPUT_ROOT"]).expanduser().resolve()
+    directory = (root / job.id).resolve()
+    if path is None:
+        return None
+    path = path.resolve()
+    if not directory.is_relative_to(root) or not path.is_relative_to(directory) or not path.is_file():
+        return None
+    return path
+
+
+@jobs_bp.get("/jobs/<job_id>/source")
+def source(job_id):
+    from .uploads import managed_source_path
+
+    path = managed_source_path(get_job(job_id))
+    if path is None:
+        abort(404)
+    response = send_file(path, conditional=True, max_age=0,
+                         as_attachment=request.args.get("download") == "1", download_name=path.name)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @jobs_bp.get("/jobs")
@@ -131,12 +188,8 @@ def output(job_id, output_id, part):
     if record is None or part not in {"media", "metadata", "conditioning"}:
         abort(404)
     path = {"media": record.file_path, "metadata": record.metadata_path, "conditioning": record.conditioning_path}[part]
-    root = Path(current_app.config["JOB_OUTPUT_ROOT"]).expanduser().resolve()
-    directory = (root / job.id).resolve()
+    path = output_path(job, path)
     if path is None:
-        abort(404)
-    path = path.resolve()
-    if not directory.is_relative_to(root) or not path.is_relative_to(directory) or not path.is_file():
         abort(404)
     mimetype = "application/json" if part == "metadata" else (
         "video/mp4" if part == "media" and record.kind == "video" else "image/png")

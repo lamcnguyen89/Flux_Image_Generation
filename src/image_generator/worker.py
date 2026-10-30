@@ -169,7 +169,8 @@ class Worker:
             try:
                 for batch in iterator:
                     self._check_health()
-                    self.store._progress(job.id, self.id, "saving", count)
+                    save_stage = "encoding_video" if batch.videos else "saving"
+                    self.store._progress(job.id, self.id, save_stage, count)
                     directory = self.output_dir / job.id
                     if directory.is_symlink():
                         raise ValueError("Job output directory must not be a symlink")

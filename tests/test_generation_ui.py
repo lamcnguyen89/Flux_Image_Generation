@@ -91,7 +91,12 @@ class GenerationUITests(unittest.TestCase):
         data = self.page(family).data()
         data["prompt"] = "A mountain lake at sunrise"
         if family == "wan":
-            data["input_image"] = (BytesIO(b"preview-only file"), "lake.png")
+            from PIL import Image
+
+            source = BytesIO()
+            Image.new("RGB", (32, 32), "navy").save(source, format="PNG")
+            source.seek(0)
+            data["input_image"] = (source, "lake.png")
         return data
 
     def post(self, family, data):

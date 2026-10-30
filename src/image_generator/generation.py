@@ -145,6 +145,12 @@ def save_video_batch(batch: GeneratedBatch, output_dir: str | Path) -> tuple[Sav
     output_dir.mkdir(parents=True, exist_ok=True)
     saved = []
     for frames, seed in zip(batch.videos, seeds, strict=True):
+        frame = frames[0]
+        if hasattr(frame, "shape"):
+            height, width = frame.shape[:2]
+        else:
+            width, height = frame.size
+        fps = batch.metadata["settings"]["fps"]
         family = batch.metadata["model"]["workflow"]
         video_path = output_dir / f"{family}-seed-{seed}-{uuid4().hex}.mp4"
         metadata_path = video_path.with_suffix(".json")
@@ -152,6 +158,8 @@ def save_video_batch(batch: GeneratedBatch, output_dir: str | Path) -> tuple[Sav
         metadata = {
             **deepcopy(batch.metadata), "seed": seed, "video_file": video_path.name,
             "conditioning_image": conditioning_path.name,
+            "output_video": {"width": int(width), "height": int(height), "frame_count": len(frames),
+                             "fps": fps, "duration_seconds": len(frames) / fps},
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         payload = json.dumps(metadata, indent=2, ensure_ascii=False, allow_nan=False)

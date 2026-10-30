@@ -22,8 +22,9 @@ Choose **Configure generation** to edit SDXL, FLUX, or WAN settings and preview
 the typed request. For a demo without weights or a GPU, run
 `IMAGE_GENERATOR_CATALOG_ROOT=tests/fixtures/model_families .venv/bin/python main.py`.
 See [generation UI testing](Documents/Generation_UI.md) for the workflow contract,
-fixture pages, and automated/manual checks. SDXL also supports queue submission
-and live progress. The forms also save/reset model settings and shared adapter
+fixture pages, and automated/manual checks. SDXL and WAN support queue submission
+and live progress. WAN saves uploaded sources and displays playable MP4 results,
+conditioning images, and actual output details. The forms also save/reset model settings and shared adapter
 defaults, retain disabled LoRAs, and support checkpoint-specific strengths.
 
 Catalog loading automatically creates missing model/LoRA defaults from the
@@ -77,8 +78,10 @@ ComfyUI runtime, component requirements, fixture form, and silent MP4 outputs.
 The shared durable queue and worker lifecycle are implemented. Start a dedicated
 worker with `.venv/bin/python -m image_generator.worker`, or test two queued fake
 workflows producing small PNGs with `.venv/bin/python tests/demo_queue.py`.
-See [queue usage, recovery, and tests](Documents/Worker_Queue.md). SDXL web forms
-now submit jobs, show loading and denoising progress, and display saved images.
+See [queue usage, recovery, and tests](Documents/Worker_Queue.md). SDXL and WAN web forms
+submit jobs, show loading and denoising progress, and display saved images or videos.
+See [WAN UI operation and validation](Documents/WAN_UI_Execution.md) for uploads,
+video results, and a GPU smoke test.
 Start both in one terminal with `bash scripts/start.sh` (automatically uses
 `.venv`); Ctrl+C stops the web app and lets an active generation finish. See
 [SDXL execution and GPU testing](Documents/SDXL_UI_Execution.md).
