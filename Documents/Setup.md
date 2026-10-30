@@ -1,15 +1,18 @@
 # Application environment setup
 
-The application will use one project-local `.venv` for its SDXL, FLUX, and WAN
-workflows. The notebooks remain independent experiments. All three families have
+The application uses one project-local `.venv` for its SDXL, FLUX, WAN, and MiniMax
+workflows. MiniMax H3 imports native ComfyUI Python nodes from `build/ComfyUI` in
+that same environment; no separate environment or ComfyUI server is needed.
+The notebooks remain independent experiments. All four families have
 reusable backends and command-line runners: [SDXL](SDXL_Workflow.md),
-[FLUX](FLUX_Workflow.md), and [WAN](WAN_Workflow.md).
+[FLUX](FLUX_Workflow.md), [WAN](WAN_Workflow.md), and [MiniMax](MiniMax_Workflow.md).
 
 ## Current status
 
-This is an initial scaffold. No environment is created by adding these files.
-Runtime pins were read from the existing `huggingface` Conda environment, except
-Flask, which is a new application dependency. The baseline is Python 3.11 on Linux
+Setup provisions all four families. The original runtime pins were read from the
+existing `huggingface` Conda environment, except Flask. MiniMax additions were
+resolved with pip's dry-run mode on Python 3.11 / Linux aarch64 without installing
+packages. The baseline is Python 3.11 on Linux
 aarch64 with `torch==2.14.1+cu132` and `torchvision==0.29.1+cu132`.
 The pinned Transformers version uses torchvision for WAN's CLIP image processor.
 These packages have not been validated together in a fresh environment. Keep the
@@ -28,10 +31,11 @@ resolving and validating the runtime together on the target machine.
 - `.python-version`: the selected Python minor version.
 - `pyproject.toml`: installs the package from `src/`; reads dependencies from
   `requirements.in` so package metadata shares the same declarations.
-- `scripts/setup.sh`: creates `.venv`, installs dependencies and the local package,
-  then runs environment checks.
+- `scripts/setup.sh`: creates `.venv`, downloads ComfyUI if absent, installs all
+  family dependencies and the local package, then runs environment checks.
 - `scripts/check_environment.py`: checks imports, FFmpeg, CUDA, BF16, small matrix
-  multiplications, and PyTorch SDPA. It does not download or load model weights.
+  multiplications, PyTorch SDPA, and MiniMax's native ComfyUI node imports and
+  sampler support. It does not download or load model weights.
 
 ## First setup
 
@@ -102,10 +106,24 @@ bash scripts/setup.sh \
 Replace those paths with your installed interpreter and wheel files.
 `PYTHON_BIN`, `TORCH_WHEEL`, and `TORCHVISION_WHEEL` can also supply the overrides.
 
-To install optional development tools too, append `--dev`. The script installs
-only into the project's `.venv`; it does not modify the original Conda environment
-or install operating-system packages. JetPack, drivers, and required system
-libraries must already be available.
+To install optional development tools too, append `--dev`. Python packages install
+into the project's `.venv`; ComfyUI source installs into `build/ComfyUI`. Setup
+does not modify the original Conda environment or install operating-system
+packages. Git, JetPack, drivers, and required system libraries must already be
+available.
+
+When `build/ComfyUI` is absent, setup fetches the official ComfyUI repository at
+revision `fd7639f477050e5c25b68fc38a9c2a6b6d988211`, which includes native H3
+support. Existing checkouts are preserved, including local changes. A checkout
+missing `requirements.txt` or `comfy_extras/nodes_minimax_h3.py` stops setup with
+instructions to update or move it aside; setup never resets or pulls it.
+
+The project requirements include the pinned ComfyUI baseline. Setup also resolves
+the checkout's own `requirements.txt` under the project constraints in the same
+pip install as the CUDA wheels. An incompatible existing checkout fails dependency
+resolution instead of silently changing the pinned torch/torchvision builds.
+No model weights are downloaded by setup. See [MiniMax](MiniMax_Workflow.md) for
+its separate checkpoint, VAE, and text encoder assets.
 
 If `.venv` was previously created from Conda, move it aside before rerunning
 setup with standalone Python. Setup will refuse to reuse it, including when
@@ -142,7 +160,7 @@ pins when updating this baseline. For another CUDA stack, Python version, or
 machine architecture, validate the builds and generate a separate lock.
 
 Commit the requirements files together after reviewing the resolved versions.
-Check the environment and perform short real generations for SDXL, FLUX, and WAN,
+Check the environment and perform short real generations for SDXL, FLUX, WAN, and MiniMax,
 including their checkpoint/LoRA loading paths, before treating a lock as validated.
 
 ## Attention and optional packages
@@ -164,6 +182,8 @@ python -m unittest discover -s tests -v
 
 The checker supports `--allow-cpu` for dependency inspection on a machine without
 CUDA. Passing that mode does not establish that GPU generation works.
+Use `--comfyui-dir /path/to/ComfyUI` on the checker to inspect a nondefault
+MiniMax checkout; the standard setup and worker use `build/ComfyUI`.
 
 References: [pip-tools](https://pip-tools.pypa.io/en/stable/),
 [Flask releases](https://pypi.org/project/Flask/), and

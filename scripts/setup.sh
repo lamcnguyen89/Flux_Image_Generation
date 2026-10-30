@@ -6,6 +6,9 @@ project_root="$(cd -- "$script_dir/.." && pwd)"
 venv_dir="$project_root/.venv"
 venv_python="$venv_dir/bin/python"
 python_bin="${PYTHON_BIN:-}"
+comfyui_dir="$project_root/build/ComfyUI"
+# Native MiniMax H3 baseline; existing checkouts are validated and preserved.
+comfyui_revision="fd7639f477050e5c25b68fc38a9c2a6b6d988211"
 # Official CUDA 13.2 wheels for the Python 3.11 / Linux aarch64 baseline.
 # Keep these versions aligned with requirements.txt and requirements.in.
 torch_source="${TORCH_WHEEL:-https://download-r2.pytorch.org/whl/cu132/torch-2.14.1%2Bcu132-cp311-cp311-manylinux_2_28_aarch64.whl}"
@@ -26,6 +29,8 @@ Usage: bash scripts/setup.sh [options]
   -h, --help           Show this help without changing the environment.
 
 The initial dependency baseline targets Linux aarch64 / Jetson Thor.
+Creates one shared .venv for SDXL, FLUX, WAN, and MiniMax H3.
+Downloads ComfyUI to build/ComfyUI when absent; preserves existing checkouts.
 Install Python 3.11 outside Conda first; see Documents/Setup.md.
 Downloads the pinned torch and torchvision CUDA 13.2 wheels from PyTorch by default.
 Wheel overrides must match requirements.txt. No FlashAttention is installed.
@@ -56,6 +61,12 @@ while (($#)); do
         *) fail "Unknown option: $1. Use --help for usage." ;;
     esac
 done
+
+if [[ ! -e "$comfyui_dir" ]]; then
+    command -v git >/dev/null 2>&1 || fail "Git is required to download MiniMax's ComfyUI runtime."
+elif [[ ! -f "$comfyui_dir/requirements.txt" || ! -f "$comfyui_dir/comfy_extras/nodes_minimax_h3.py" ]]; then
+    fail "ComfyUI at $comfyui_dir is incomplete or lacks native MiniMax H3 support. Move it aside or update it, then rerun setup."
+fi
 
 if [[ -z "$python_bin" ]]; then
     if [[ -x "$venv_python" ]]; then
@@ -119,7 +130,21 @@ fi
 
 check_python "$venv_python"
 
-install_args=(-r "$project_root/requirements.txt" "${wheel_sources[@]}")
+if [[ ! -e "$comfyui_dir" ]]; then
+    mkdir -p "$(dirname -- "$comfyui_dir")"
+    git init "$comfyui_dir"
+    git -C "$comfyui_dir" remote add origin https://github.com/Comfy-Org/ComfyUI.git
+    git -C "$comfyui_dir" fetch --depth 1 origin "$comfyui_revision"
+    git -C "$comfyui_dir" checkout --detach FETCH_HEAD
+fi
+[[ -f "$comfyui_dir/requirements.txt" && -f "$comfyui_dir/comfy_extras/nodes_minimax_h3.py" ]] \
+    || fail "ComfyUI at $comfyui_dir lacks native MiniMax H3 support."
+
+# Resolve all families together, constraining upstream ComfyUI requirements to
+# the project baseline so they cannot replace the platform-specific GPU wheels.
+install_args=(-c "$project_root/requirements.txt"
+              -r "$project_root/requirements.txt"
+              -r "$comfyui_dir/requirements.txt" "${wheel_sources[@]}")
 "$venv_python" -m pip install "${install_args[@]}"
 if [[ "$install_dev" == true ]]; then
     "$venv_python" -m pip install -r "$project_root/requirements-dev.txt"
@@ -130,3 +155,4 @@ fi
 "$venv_python" -m pip check
 "$venv_python" "$script_dir/check_environment.py"
 printf '\nSetup complete. Activate with: source "%s/bin/activate"\n' "$venv_dir"
+printf 'Model families: SDXL, FLUX, WAN, MiniMax H3 (ComfyUI: %s)\n' "$comfyui_dir"

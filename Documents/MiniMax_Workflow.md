@@ -59,10 +59,13 @@ another catalog entry/library. The manifest's enabled adapter links are used
 unless replaced with repeated `--lora ID:STRENGTH` arguments or `--no-loras`.
 `--include-trigger-words` is opt-in; adapter recommendations are not merged.
 
-For generation, install ComfyUI with native H3 support using the notebook's
-existing setup cell in the project environment. It preserves the installed
-platform-specific PyTorch/torchvision builds. The default checkout is
-`build/ComfyUI`; use `--comfyui-dir /path/to/ComfyUI` for another checkout.
+For generation, run `bash scripts/setup.sh` (append `--dev` for notebook tooling).
+It installs all four families into the shared `.venv`, including ComfyUI's
+dependencies, while preserving the pinned platform-specific PyTorch/torchvision
+builds. It fetches a pinned native-H3 checkout at `build/ComfyUI` when absent and
+preserves existing checkouts. The notebook setup cell is no longer required for
+application setup. See [environment setup](Setup.md) for prerequisites and checks.
+Use `--comfyui-dir /path/to/ComfyUI` for another checkout when running the CLI.
 This backend currently uses ComfyUI's CUDA device 0 and checkpoint-managed
 precision. Omit `--dtype`; CPU generation is not implemented.
 

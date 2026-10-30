@@ -74,7 +74,47 @@ class EnvironmentTests(unittest.TestCase):
     def test_failed_imports_produce_nonzero_exit(self):
         with patch.object(CHECKER, "check_python", return_value=[]):
             with patch.object(CHECKER, "check_imports", return_value=({}, ["missing torch"])):
-                self.assertEqual(CHECKER.main([]), 1)
+                with patch.object(CHECKER, "check_minimax", return_value=[]):
+                    self.assertEqual(CHECKER.main([]), 1)
+
+    def test_missing_minimax_fails_the_overall_environment_check(self):
+        with patch.object(CHECKER, "check_python", return_value=[]):
+            with patch.object(CHECKER, "check_imports", return_value=({}, [])):
+                with patch.object(CHECKER, "check_minimax", return_value=["missing native H3 runtime"]):
+                    self.assertEqual(CHECKER.main([]), 1)
+
+    def test_missing_minimax_checkout_is_reported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            errors = CHECKER.check_minimax(directory)
+        self.assertIn("MiniMax ComfyUI runtime missing", errors[0])
+
+    def test_minimax_native_node_import_failure_is_reported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            node = Path(directory) / "comfy_extras/nodes_minimax_h3.py"
+            node.parent.mkdir()
+            node.touch()
+            with patch.object(CHECKER.importlib, "import_module", side_effect=ImportError("missing scipy")):
+                errors = CHECKER.check_minimax(directory)
+            self.assertNotIn(str(Path(directory).resolve()), sys.path)
+        self.assertIn("missing scipy", errors[0])
+
+    def test_cpu_inspection_imports_minimax_nodes_without_enabling_cuda(self):
+        modules = {
+            "comfy.options": SimpleNamespace(enable_args_parsing=Mock()),
+            "comfy.cli_args": SimpleNamespace(args=SimpleNamespace(cpu=False)),
+            "comfy.sd": SimpleNamespace(CLIPType=SimpleNamespace(MINIMAX="minimax")),
+            "comfy.samplers": SimpleNamespace(SAMPLER_NAMES=["res_multistep"], SCHEDULER_NAMES=["simple"]),
+        }
+        def import_module(name):
+            return modules.get(name, Mock())
+        with tempfile.TemporaryDirectory() as directory:
+            node = Path(directory) / "comfy_extras/nodes_minimax_h3.py"
+            node.parent.mkdir()
+            node.touch()
+            with patch.object(CHECKER.importlib, "import_module", side_effect=import_module) as importer:
+                self.assertEqual(CHECKER.check_minimax(directory, allow_cpu=True), [])
+            self.assertTrue(modules["comfy.cli_args"].args.cpu)
+            self.assertIn(unittest.mock.call("comfy_extras.nodes_minimax_h3"), importer.call_args_list)
 
     @staticmethod
     def fake_torch(cuda_available=True, bf16_supported=True):
@@ -122,6 +162,10 @@ class SetupInterpreterTests(unittest.TestCase):
         (self.root / "scripts").mkdir()
         self.script = self.root / "scripts/setup.sh"
         shutil.copyfile(ROOT / "scripts/setup.sh", self.script)
+        self.comfyui = self.root / "build/ComfyUI"
+        (self.comfyui / "comfy_extras").mkdir(parents=True)
+        (self.comfyui / "comfy_extras/nodes_minimax_h3.py").touch()
+        (self.comfyui / "requirements.txt").write_text("torch\ntorchvision\n")
         (self.root / ".python-version").write_text(
             f"{sys.version_info.major}.{sys.version_info.minor}\n"
         )
@@ -231,6 +275,65 @@ class SetupInterpreterTests(unittest.TestCase):
                 f"https://download-r2.pytorch.org/whl/cu132/{package}-{pin}-cp311-cp311-manylinux_2_28_aarch64.whl",
             )
         self.assertIn(str(self.root / "requirements.txt"), arguments)
+        self.assertIn(str(self.comfyui / "requirements.txt"), arguments)
+        self.assertEqual(arguments[arguments.index("-c") + 1], str(self.root / "requirements.txt"))
+
+    def test_fresh_setup_fetches_pinned_comfyui_and_rerun_preserves_it(self):
+        shutil.rmtree(self.comfyui)
+        fake_bin = self.root / "fake-bin"
+        fake_bin.mkdir()
+        git = fake_bin / "git"
+        git.write_text(
+            f"#!{sys.executable}\n"
+            "import json, sys\n"
+            "from pathlib import Path\n"
+            f"with open({str(self.root / 'git-arguments.jsonl')!r}, 'a') as log:\n"
+            "    log.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+            "if sys.argv[1] == 'init':\n"
+            "    Path(sys.argv[2]).mkdir(parents=True)\n"
+            "if 'checkout' in sys.argv:\n"
+            "    checkout = Path(sys.argv[2])\n"
+            "    (checkout / 'comfy_extras').mkdir()\n"
+            "    (checkout / 'comfy_extras/nodes_minimax_h3.py').touch()\n"
+            "    (checkout / 'requirements.txt').write_text('torch\\ntorchvision\\n')\n"
+        )
+        git.chmod(0o755)
+        self.environment["PATH"] = str(fake_bin) + os.pathsep + self.environment["PATH"]
+        python = self.interpreter(self.root / "standalone", simulate_install=True)
+        result = self.run_setup("--python", python)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        log = self.root / "git-arguments.jsonl"
+        commands = [json.loads(line) for line in log.read_text().splitlines()]
+        self.assertEqual(commands[0], ["init", str(self.comfyui)])
+        self.assertEqual(commands[1][-1], "https://github.com/Comfy-Org/ComfyUI.git")
+        self.assertEqual(commands[2][3:6], ["--depth", "1", "origin"])
+        self.assertRegex(commands[2][-1], r"^[0-9a-f]{40}$")
+        self.assertEqual(commands[3][-3:], ["checkout", "--detach", "FETCH_HEAD"])
+        marker = self.comfyui / "local-changes.txt"
+        marker.write_text("preserve this checkout")
+        result = self.run_setup()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(log.read_text().splitlines()), 4)
+        self.assertEqual(marker.read_text(), "preserve this checkout")
+
+    def test_existing_checkout_without_h3_fails_without_installing(self):
+        (self.comfyui / "comfy_extras/nodes_minimax_h3.py").unlink()
+        python = self.interpreter(self.root / "standalone", simulate_install=True)
+        result = self.run_setup("--python", python)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("lacks native MiniMax H3 support", result.stderr)
+        self.assertFalse((self.root / "pip-arguments.jsonl").exists())
+        self.assertFalse((self.root / ".venv").exists())
+
+    def test_dev_tools_install_after_complete_runtime_with_shared_constraints(self):
+        python = self.interpreter(self.root / "standalone", simulate_install=True)
+        result = self.run_setup("--python", python, "--dev")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = [json.loads(line) for line in (self.root / "pip-arguments.jsonl").read_text().splitlines()]
+        self.assertIn(str(self.comfyui / "requirements.txt"), commands[0])
+        self.assertEqual(commands[1], ["install", "-r", str(self.root / "requirements-dev.txt")])
+        self.assertIn("--no-deps", commands[2])
+        self.assertEqual(commands[3], ["check"])
 
     def test_explicit_wheel_overrides_environment_and_preserves_other_default(self):
         python = self.interpreter(self.root / "standalone", simulate_install=True)

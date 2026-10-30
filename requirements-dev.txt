@@ -1,5 +1,7 @@
 # Optional tooling, installed by scripts/setup.sh --dev.
-# Constrain runtime dependencies so tooling cannot silently upgrade them.
+# Constrain all four model families, including MiniMax's native ComfyUI stack,
+# so tooling cannot silently upgrade the shared runtime. Install via setup --dev
+# to provision the runtime and its platform-specific wheels first.
 -c requirements.txt
 pip-tools==7.6.2
 ipykernel==7.4.0

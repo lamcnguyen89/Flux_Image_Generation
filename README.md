@@ -61,8 +61,10 @@ variations one at a time. Both runners support `--dry-run`. See the
 [FLUX guide](Documents/FLUX_Workflow.md) and [WAN guide](Documents/WAN_Workflow.md)
 for family-specific settings, adapters, and Python APIs.
 
-See [environment setup](Documents/Setup.md) for the shared requirements, project
-virtual environment, GPU dependency setup, and validation commands.
+Run `bash scripts/setup.sh` to install SDXL, FLUX, WAN, and MiniMax H3 into the
+shared `.venv`, including the native ComfyUI checkout and dependencies for MiniMax.
+Append `--dev` for development and notebook tools. See
+[environment setup](Documents/Setup.md) for prerequisites, GPU wheels, and checks.
 
 MiniMax H3 uses the same catalog, UI contract, LoRA selection, and generation
 request API through its native ComfyUI adapter. Start with a validated request:
