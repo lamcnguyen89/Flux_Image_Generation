@@ -263,13 +263,12 @@ class SDXLExecutionTests(unittest.TestCase):
         with patch("image_generator.jobs.JobStore.list_jobs", side_effect=sqlite3.OperationalError("database busy")):
             self.assertEqual(self.client.get("/jobs").status_code, 503)
 
-    def test_other_families_remain_preview_only(self):
-        for family in ("flux", "minimax"):
-            response = self.client.get(f"/generate/fixture-{family}")
-            self.assertNotIn('value="generate"', response.get_data(as_text=True))
-            data = FormPage(response.get_data(as_text=True)).data()
-            data["action"] = "generate"
-            self.assertEqual(self.client.post(f"/generate/fixture-{family}", data=data).status_code, 400)
+    def test_flux_remains_preview_only(self):
+        response = self.client.get("/generate/fixture-flux")
+        self.assertNotIn('value="generate"', response.get_data(as_text=True))
+        data = FormPage(response.get_data(as_text=True)).data()
+        data["action"] = "generate"
+        self.assertEqual(self.client.post("/generate/fixture-flux", data=data).status_code, 400)
         self.assertEqual(self.store.list_jobs(), ())
 
     def test_results_do_not_depend_on_live_catalog_and_output_paths_are_confined(self):

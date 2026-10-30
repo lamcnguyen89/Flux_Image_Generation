@@ -17,6 +17,9 @@ STAGE_LABELS = {
     "generating": "Generating", "loading_runtime": "Preparing GPU runtime",
     "loading_model": "Loading checkpoint", "switching_model": "Switching checkpoint",
     "reusing_model": "Reusing loaded checkpoint", "resetting_loras": "Clearing previous LoRAs",
+    "resolving_text_encoder": "Resolving text encoder", "loading_text_encoder": "Loading text encoder",
+    "loading_vae": "Loading video VAE", "encoding_prompt": "Conditioning source and encoding prompt",
+    "reusing_loras": "Reusing configured LoRAs",
     "loading_loras": "Loading selected LoRAs", "loras_ready": "LoRAs configured",
     "denoising": "Denoising", "decoding": "Decoding images", "saving": "Saving outputs",
     "conditioning_image": "Preparing conditioning image", "video_variation": "Generating video variation",
@@ -60,7 +63,7 @@ def progress_text(stage, current, total):
         return f"Step {current} of {total}"
     if stage == "video_variation":
         return f"Video {current} of {total}"
-    if stage in {"loading_loras", "loras_ready"}:
+    if stage in {"loading_loras", "loras_ready", "reusing_loras"}:
         return f"{current} of {total} adapters" if total else "No adapters selected"
     if stage in {"saving", "encoding_video", "completed", "failed", "interrupted"}:
         return f"{current} output(s) saved"
@@ -101,6 +104,7 @@ def job_payload(job):
                                    "frame_count": metadata.get("frame_count"),
                                    "fps": metadata.get("settings", {}).get("fps"),
                                    "duration_seconds": metadata.get("duration_seconds")}
+                    details = {**details, "audio_exported": metadata.get("audio_exported")}
                 except (ValueError, OSError):
                     pass
         return {

@@ -1,5 +1,10 @@
 # Implementing the MiniMax generation UI
 
+Implemented using the shared WAN upload and results infrastructure. See
+[MiniMax UI operation and validation](MiniMax_UI_Execution.md) for startup,
+supported controls, progress, tests, and the real GPU validation procedure.
+The milestones below describe the implementation requirements.
+
 Connect the existing MiniMax H3 `img2vid` workflow to the web form, shared queue,
 and video results pages. The workflow runs native ComfyUI Python nodes inside
 the generation worker; the UI does not require a separate ComfyUI server.
@@ -18,8 +23,8 @@ The repository already has:
   polling, job pages, and registered video output serving.
 - A single `scripts/start.sh` launcher for the web app and worker.
 
-Web submission is currently enabled only for SDXL. MiniMax's current preview
-does not save its uploaded image, so it cannot yet enqueue an executable request.
+MiniMax now saves uploaded images for generation and queues executable requests.
+Request previews continue to validate without saving uploads.
 
 ## 1. Share WAN's managed uploads and video submission
 

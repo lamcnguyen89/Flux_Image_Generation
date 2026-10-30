@@ -6,8 +6,9 @@ image-to-video. It uses
 the existing Flask/Jinja application and model catalog. No GPU, model downloads,
 or weight files are required to render or preview a form.
 
-SDXL additionally supports **Generate images**, live job progress, and saved
-results through the durable worker. See [SDXL execution](SDXL_UI_Execution.md) for
+SDXL supports **Generate images**; WAN and MiniMax support **Generate video**
+with managed source uploads, live job progress, and saved results through the
+durable worker. See [SDXL execution](SDXL_UI_Execution.md) for
 the two-process startup, model reuse/switching, and LoRA-reset checks. Fixture
 manifests are preview-only unless tests supply fake weights and a mocked runtime.
 
@@ -34,9 +35,9 @@ running `.venv/bin/python main.py` without the environment variable uses the
 actual library again. Real models also have a **Configure generation** link.
 
 MiniMax uses `17*n + 5` frames and its own partial, without WAN's expert groups.
-Negative prompt, CFG, and FPS controls are read-only for its BasicGuider mode;
+Negative prompt, CFG, FPS, sampler, and schedule controls are read-only for its BasicGuider mode;
 Python rejects attempts to change the fixed settings. See the
-[MiniMax guide](MiniMax_Workflow.md) for CLI generation and runtime requirements.
+[MiniMax web guide](MiniMax_UI_Execution.md) for generation, progress, and runtime requirements.
 
 Manual checks:
 
@@ -160,20 +161,20 @@ To add another checkpoint for an existing workflow, provide its manifests and
 requirements. For another workflow, implement/register it, declare `ui_modes`,
 define its fields, and add a partial if generic controls are insufficient.
 
-## Preview behavior and next integration
+## Preview and generation behavior
 
 A successful POST displays a JSON preview with `model_id`, `mode`, fully resolved
 `overrides`, `include_trigger_words`, and `input_files`. The first four correspond
 to the existing generation-preparation arguments. `input_files` contains selected
 filenames only, not executable filesystem paths or uploaded asset references.
 
-Request previews do not save uploaded files, verify their image contents, persist
-settings, queue jobs, load weights, or produce media. SDXL's separate Generate
-action queues validated requests. WAN files must be selected
+Request previews do not save uploaded files, persist settings, queue jobs, load
+weights, or produce media. WAN and MiniMax previews validate image contents.
+The separate Generate action queues validated requests. Source files must be selected
 again after submitting the preview. The browser thumbnail uses a temporary local
 object URL. JavaScript supplies hints only; the server works without it.
 
-The next integration will save source images as managed inputs, translate them
+WAN and MiniMax generation save source images as managed inputs, translate them
 to `prepare_generation(..., inputs={"input_image": path})`, and run full workflow
 validation before queuing a snapshot. Existing `workflow.validate()` remains
 authoritative for weights, supported loaders, and generation requests; loaded

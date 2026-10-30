@@ -1,5 +1,6 @@
 """MiniMax H3 I2V using native ComfyUI Python nodes, without a ComfyUI server."""
 
+from contextlib import contextmanager
 from dataclasses import replace
 import gc
 import hashlib
@@ -108,7 +109,7 @@ class MiniMaxWorkflow(Workflow):
         return definition(model, mode, workflow="minimax", supported_modes=self.ui_modes,
                           variant="minimax_h3", partial="controls/minimax.html", fields=(
             UIField("input_image", "Source image", "file", "Source image", scope="inputs", required=True,
-                    help="Files are not saved by request previews; select the image again after submitting."),
+                    help="Choose a single-frame image. Generation saves the original source for this job; previews do not save uploads."),
             *fields,
             UIField("preserve_aspect_ratio", "Preserve source aspect ratio", "boolean", "Output",
                     help="Width and height set the output pixel budget; the source determines aspect ratio."),
@@ -116,13 +117,17 @@ class MiniMaxWorkflow(Workflow):
                     help="H3 uses 17*n + 5 frames, independently of WAN's frame rule."),
             UIField("fps", "Playback FPS", "number", "Output", minimum=24, maximum=24, read_only=True,
                     help="MiniMax H3's native rate is 24 FPS."),
-            UIField("sampling.sampler", "Sampler", "select", "Sampling", choices=(("res_multistep", "RES multistep"),)),
-            UIField("sampling.noise_schedule", "Noise schedule", "select", "Sampling", choices=(("simple", "Simple"),)),
+            UIField("sampling.sampler", "Sampler", "text", "Sampling", read_only=True,
+                    help="Fixed to res_multistep for H3."),
+            UIField("sampling.noise_schedule", "Noise schedule", "text", "Sampling", read_only=True,
+                    help="Fixed to simple for H3."),
             UIField("enable_vae_tiling", "Enable VAE tiling", "boolean", "Advanced"),
         ))
 
     def validate_form_settings(self, model, mode, settings):
         super().validate_form_settings(model, mode, settings)
+        if settings["sampling"] != self.defaults["sampling"]:
+            raise FormValidationError({"sampling": "H3 requires res_multistep with the simple schedule."})
         if settings["negative_prompt"]:
             raise FormValidationError({"negative_prompt": "BasicGuider does not support negative prompting."})
 
@@ -230,7 +235,9 @@ class MiniMaxWorkflow(Workflow):
     def _ensure_pipeline(self, checkpoint, vae, encoder):
         key = tuple(file_fingerprint(path) for path in (checkpoint, vae, encoder))
         if self._pipeline is not None and key == self._model_key:
+            self.report_progress("reusing_model")
             return
+        self.report_progress("switching_model" if self._pipeline is not None else "loading_model")
         self.close()
         self._owns_models = True
         runtime = self._runtime
@@ -238,8 +245,10 @@ class MiniMaxWorkflow(Workflow):
         try:
             components["base"] = runtime.sd.load_diffusion_model(str(checkpoint))
             protect_quantized_transfers(components["base"].model, self._torch)
+            self.report_progress("loading_text_encoder")
             components["clip"] = runtime.sd.load_clip([str(encoder)], clip_type=runtime.sd.CLIPType.MINIMAX)
             protect_quantized_transfers(components["clip"].cond_stage_model, self._torch)
+            self.report_progress("loading_vae")
             state, metadata = runtime.utils.load_torch_file(str(vae), return_metadata=True)
             try:
                 components["vae"] = runtime.sd.VAE(sd=state, metadata=metadata)
@@ -252,14 +261,16 @@ class MiniMaxWorkflow(Workflow):
         self._pipeline, self._model_key = components, key
 
     def _configure_loras(self, request):
-        key = tuple((file_fingerprint(item.asset.asset_paths["weights"]), item.strength) for item in request.loras)
+        active = tuple(item for item in request.loras if item.strength)
+        key = tuple((file_fingerprint(item.asset.asset_paths["weights"]), item.strength) for item in active)
         if self._model is not None and key == self._lora_key:
+            self.report_progress("reusing_loras", len(active), len(active))
             return
+        self.report_progress("resetting_loras")
         self._model = self._lora_key = None
         model = self._pipeline["base"]
-        for item in request.loras:
-            if not item.strength:
-                continue
+        self.report_progress("loading_loras", 0, len(active))
+        for index, item in enumerate(active):
             weights, metadata = self._runtime.utils.load_torch_file(
                 str(item.asset.asset_paths["weights"]), safe_load=True, return_metadata=True)
             before = sum(len(patches) for patches in model.patches.values())
@@ -270,7 +281,31 @@ class MiniMaxWorkflow(Workflow):
                 del weights
             if sum(len(patches) for patches in model.patches.values()) <= before:
                 raise ValueError(f"LoRA {item.asset.id!r} did not match any MiniMax H3 weights")
+            self.report_progress("loading_loras", index + 1, len(active))
         self._model, self._lora_key = model, key
+        self.report_progress("loras_ready", len(active), len(active))
+
+    @contextmanager
+    def _sampling_progress(self, steps):
+        """Bridge Comfy's existing sampler callback only while this worker samples.
+
+        ProgressBar captures the global hook on construction. Do not replace the
+        sampler callback, or pass its tensor/preview payload to job persistence.
+        The worker serializes workflow execution in this process.
+        """
+        utils = self._runtime.utils
+        previous = utils.PROGRESS_BAR_HOOK
+
+        def report(current, total, preview=None, node_id=None):
+            if type(current) is int and type(total) is int and 0 <= current <= total and total > 0:
+                self.report_progress("denoising", current, total)
+
+        try:
+            utils.set_progress_bar_global_hook(report)
+            self.report_progress("denoising", 0, steps)
+            yield
+        finally:
+            utils.set_progress_bar_global_hook(previous)
 
     def _render_one(self, request, positive, latent, seed):
         nodes, settings = self._runtime.sampling, request.settings
@@ -282,8 +317,10 @@ class MiniMaxWorkflow(Workflow):
             noise = nodes.RandomNoise.execute(noise_seed=seed)[0]
             self._torch.cuda.synchronize()
             start = perf_counter()
-            sampled = nodes.SamplerCustomAdvanced.execute(noise=noise, guider=guider, sampler=sampler,
-                                                          sigmas=sigmas, latent_image=latent)[0]
+            with self._sampling_progress(settings["num_inference_steps"]):
+                sampled = nodes.SamplerCustomAdvanced.execute(noise=noise, guider=guider, sampler=sampler,
+                                                              sigmas=sigmas, latent_image=latent)[0]
+            self.report_progress("decoding_video")
             if settings["enable_vae_tiling"]:
                 frames = self._runtime.nodes.VAEDecodeTiled().decode(
                     vae=self._pipeline["vae"], samples=sampled, tile_size=512,
@@ -304,6 +341,7 @@ class MiniMaxWorkflow(Workflow):
             from PIL import Image, ImageOps
             import numpy as np
 
+            self.report_progress("conditioning_image")
             payload = request.inputs["input_image"].read_bytes()
             with Image.open(BytesIO(payload)) as opened:
                 source = ImageOps.exif_transpose(opened).convert("RGB")
@@ -320,8 +358,10 @@ class MiniMaxWorkflow(Workflow):
             else:
                 conditioning = ImageOps.fit(source, (width, height), method=Image.Resampling.LANCZOS)
             check_video_encoder()
+            self.report_progress("loading_runtime")
             self._load_runtime()
             sources = self.component_sources(request.model)
+            self.report_progress("resolving_text_encoder")
             encoder = self._resolve_text_encoder(sources["text_encoder"])
             checkpoint, vae = request.model.asset_paths["weights"], sources["vae"]
             with self._torch.inference_mode(False), self._torch.no_grad():
@@ -330,10 +370,13 @@ class MiniMaxWorkflow(Workflow):
                 if settings["sampling"]["sampler"] not in self._runtime.samplers.SAMPLER_NAMES or settings["sampling"]["noise_schedule"] not in self._runtime.samplers.SCHEDULER_NAMES:
                     raise ValueError("The selected sampling is unavailable in this ComfyUI checkout")
                 tensor = self._torch.from_numpy(np.array(conditioning).astype(np.float32) / 255.0).unsqueeze(0)
+                self.report_progress("encoding_prompt")
                 positive, latent = self._runtime.h3.MiniMaxH3ImageToVideo.execute(
                     clip=self._pipeline["clip"], vae=self._pipeline["vae"], prompt=request.prompt,
                     width=width, height=height, length=settings["num_frames"], first_frame=tensor).result
-            for index, seed in enumerate(image_seeds(settings, settings["num_videos_per_prompt"])):
+            seeds = image_seeds(settings, settings["num_videos_per_prompt"])
+            for index, seed in enumerate(seeds):
+                self.report_progress("video_variation", index + 1, len(seeds))
                 frames, elapsed = self._render_one(request, positive, latent, seed)
                 if len(frames) != settings["num_frames"]:
                     raise RuntimeError("The MiniMax decoder returned an unexpected frame count")

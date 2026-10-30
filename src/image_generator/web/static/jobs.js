@@ -72,6 +72,7 @@ if (jobView) {
         if (output.frame_count) values.push(`${output.frame_count} frames`);
         if (output.fps) values.push(`${output.fps} FPS`);
         if (Number.isFinite(output.duration_seconds)) values.push(`${output.duration_seconds.toFixed(2)} seconds`);
+        if (output.audio_exported === false) values.push("Silent video");
         details.textContent = values.join(" · ");
         caption.insertBefore(details, links);
       }

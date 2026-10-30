@@ -34,14 +34,14 @@ factory CLI:
   nested objects remain distinguishable.
 - `/generate/<model_id>` renders the workflow's editable form. POST previews
   typed settings and reports errors without saving settings. SDXL forms
-  submit jobs through **Generate images**; WAN forms use **Generate video**
-  with a source-image upload. Both execute on the dedicated worker.
+  submit jobs through **Generate images**; WAN and MiniMax forms use **Generate
+  video** with a source-image upload. All execute on the dedicated worker.
   See [generation forms](Generation_UI.md) for fixture startup and testing.
 - `/jobs` lists recent jobs; `/jobs/<job_id>` displays live progress, execution
   history, errors, and saved outputs. `/api/jobs/<job_id>` supplies polling data.
 
 The catalog and saved-settings pages support GET and HEAD; writes to those
-routes return 405. Generation forms support GET, HEAD, POST previews, and SDXL/WAN
+routes return 405. Generation forms support GET, HEAD, POST previews, and SDXL/WAN/MiniMax
 queue submissions. Browsing never loads weights or queues jobs. Catalog browsing keeps workflow
 imports lazy; generation forms import only lightweight definitions and validation.
 Catalog loading creates missing defaults/user JSON files using
@@ -92,6 +92,8 @@ The `jobs` blueprint lives in `web/job_routes.py`. Database/output configuration
 worker startup, and real GPU testing are described in [SDXL execution](SDXL_UI_Execution.md).
 See [WAN execution](WAN_UI_Execution.md) for source storage, video playback,
 upload limits, and WAN-specific GPU checks.
+See [MiniMax execution](MiniMax_UI_Execution.md) for native ComfyUI progress,
+H3 restrictions, silent video results, and runtime startup.
 
 ## Validation
 

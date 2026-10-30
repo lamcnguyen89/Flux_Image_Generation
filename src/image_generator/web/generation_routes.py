@@ -55,14 +55,16 @@ def configure(model_id, settings_errors=None):
     action = form.get("action", "preview") if form is not None else "preview"
     submission_key = form.get("submission_key") if form is not None else None
     submission_key = submission_key or uuid4().hex
-    can_generate = (model.defaults["workflow"], mode) in {("sdxl", "txt2img"), ("wan", "img2vid")}
+    can_generate = (model.defaults["workflow"], mode) in {
+        ("sdxl", "txt2img"), ("wan", "img2vid"), ("minimax", "img2vid"),
+    }
     if settings_errors is not None:
         action = "preview"
     if action not in {"preview", "generate"}:
         return render_template("error.html", title="Unknown action", message="Choose preview or generation."), 400
     if action == "generate":
         if not can_generate:
-            return render_template("error.html", title="Generation unavailable", message="Web submission supports SDXL text-to-image and WAN image-to-video."), 400
+            return render_template("error.html", title="Generation unavailable", message="Web submission supports SDXL text-to-image and WAN/MiniMax image-to-video."), 400
         if not valid_csrf(form.get("csrf_token")):
             return render_template("error.html", title="Form expired", message="Reload the generation form before submitting again."), 400
         if not form.get("submission_key") or not re.fullmatch(r"[0-9a-f]{32}", submission_key):

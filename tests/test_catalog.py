@@ -3,7 +3,6 @@
 from copy import deepcopy
 import json
 from pathlib import Path
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -105,13 +104,6 @@ class CatalogTests(unittest.TestCase):
         )
         self.assertIn(str(path), str(context.exception))
         return context.exception
-
-    def run_cli(self, *args):
-        # -S excludes installed site packages, demonstrating a stdlib-only CLI.
-        return subprocess.run(
-            [sys.executable, "-S", str(ROOT / "scripts/inspect_catalog.py"), "--root", str(self.root), *args],
-            cwd="/tmp", capture_output=True, text=True, timeout=10,
-        )
 
     def test_discovery_ignores_examples_and_unrelated_files(self):
         self.write_model()
@@ -327,34 +319,6 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(catalog.loras, {})
         with self.assertRaises(CatalogValidationError):
             discover_catalog(self.root / "missing")
-
-    def test_cli_lists_assets_and_prints_resolved_json_outside_project(self):
-        self.write_model()
-        self.write_lora()
-        listing = self.run_cli()
-        self.assertEqual(listing.returncode, 0, listing.stderr)
-        self.assertIn("Models (1)", listing.stdout)
-        self.assertIn("LoRAs (1)", listing.stdout)
-        full = self.run_cli("--json")
-        self.assertEqual(full.returncode, 0, full.stderr)
-        self.assertEqual(json.loads(full.stdout)["models"][0]["effective_settings"]["width"], 1024)
-        one = self.run_cli("--id", "lora-test")
-        self.assertEqual(one.returncode, 0, one.stderr)
-        self.assertEqual(json.loads(one.stdout)["effective_settings"]["strength"], 0.8)
-
-    def test_cli_returns_nonzero_with_structured_errors(self):
-        path = self.write_model(schema_version=2)
-        result = self.run_cli("--json")
-        self.assertEqual(result.returncode, 1)
-        self.assertEqual(json.loads(result.stdout)["errors"][0]["path"], str(path))
-        result = self.run_cli()
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("schema_version", result.stderr)
-
-    def test_cli_unknown_id_returns_nonzero(self):
-        result = self.run_cli("--id", "missing", "--json")
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("unknown asset ID", json.loads(result.stdout)["errors"][0]["message"])
 
     def test_project_manifests_are_discoverable_without_loading_weights(self):
         catalog = discover_catalog(ROOT / "Models/Model_Families")

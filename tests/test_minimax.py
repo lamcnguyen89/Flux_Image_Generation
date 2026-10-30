@@ -29,7 +29,8 @@ class RootModule:
         return []
 
 
-class MiniMaxTests(unittest.TestCase):
+class MiniMaxFixture:
+    """Native node doubles shared by backend and HTTP/worker integration tests."""
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -76,7 +77,7 @@ class MiniMaxTests(unittest.TestCase):
                                CLIPType=SimpleNamespace(MINIMAX="minimax"),
                                VAE=Mock(return_value=SimpleNamespace(first_stage_model=RootModule())),
                                load_lora_for_models=Mock(side_effect=apply_adapter)),
-            utils=SimpleNamespace(load_torch_file=Mock(return_value=({}, {}))),
+            utils=SimpleNamespace(load_torch_file=Mock(return_value=({}, {})), PROGRESS_BAR_HOOK=None),
             management=SimpleNamespace(unload_all_models=Mock()),
             samplers=SimpleNamespace(SAMPLER_NAMES=["res_multistep"], SCHEDULER_NAMES=["simple"]),
             h3=SimpleNamespace(MiniMaxH3ImageToVideo=SimpleNamespace(execute=Mock(return_value=SimpleNamespace(result=("positive", "latent"))))),
@@ -84,6 +85,8 @@ class MiniMaxTests(unittest.TestCase):
                                      BasicScheduler=node("sigmas"), RandomNoise=node("noise"), SamplerCustomAdvanced=node("sampled")),
             nodes=SimpleNamespace(VAEDecodeTiled=Mock(return_value=SimpleNamespace(decode=Mock(return_value=(frames,)))),
                                   VAEDecode=Mock(return_value=SimpleNamespace(decode=Mock(return_value=(frames,))))))
+        self.runtime.utils.set_progress_bar_global_hook = Mock(
+            side_effect=lambda hook: setattr(self.runtime.utils, "PROGRESS_BAR_HOOK", hook))
 
         def load_runtime():
             self.workflow._torch, self.workflow._runtime = self.torch, self.runtime
@@ -108,6 +111,8 @@ class MiniMaxTests(unittest.TestCase):
         return prepare_generation(discover_catalog(self.root), "fixture-minimax", overrides=overrides,
                                   inputs={"input_image": self.source})
 
+
+class MiniMaxTests(MiniMaxFixture, unittest.TestCase):
     def test_native_nodes_receive_h3_settings_and_conditioning(self):
         batch = self.workflow.generate(self.request())
         self.runtime.sd.load_diffusion_model.assert_called_once_with(str(self.checkpoint))
@@ -126,6 +131,52 @@ class MiniMaxTests(unittest.TestCase):
         self.assertFalse(batch.metadata["audio_exported"])
         self.assertTrue(batch.metadata["runtime"]["quantized_transfer_guard"])
         self.torch.inference_mode.assert_called_with(False)
+
+    def test_sampling_progress_uses_numeric_hook_and_restores_previous_on_success_and_failure(self):
+        previous = Mock()
+        self.runtime.utils.PROGRESS_BAR_HOOK = previous
+        for fail in (False, True):
+            events = []
+            self.workflow.set_progress_callback(events.append)
+
+            def sample(**kwargs):
+                hook = self.runtime.utils.PROGRESS_BAR_HOOK
+                self.assertIsNot(hook, previous)
+                hook(1, 20, object(), node_id="sampler")
+                self.assertEqual((events[-1].stage, events[-1].current, events[-1].total), ("denoising", 1, 20))
+                if fail:
+                    raise RuntimeError("sampling failed")
+                return ("sampled",)
+
+            self.runtime.sampling.SamplerCustomAdvanced.execute.side_effect = sample
+            with self.subTest(fail=fail):
+                if fail:
+                    with self.assertRaisesRegex(RuntimeError, "sampling failed"):
+                        self.workflow.generate(self.request())
+                    self.assertIsNone(self.workflow._pipeline)
+                else:
+                    self.workflow.generate(self.request())
+                self.assertIs(self.runtime.utils.PROGRESS_BAR_HOOK, previous)
+        previous.assert_not_called()
+
+    def test_progress_reports_component_and_adapter_reuse_reset_and_loading(self):
+        events = []
+        self.workflow.set_progress_callback(lambda event: events.append(event.stage))
+        self.workflow.generate(self.request())
+        for stage in ("loading_runtime", "resolving_text_encoder", "loading_model", "loading_text_encoder",
+                      "loading_vae", "resetting_loras", "loading_loras", "loras_ready", "conditioning_image",
+                      "encoding_prompt", "video_variation", "denoising", "decoding_video"):
+            self.assertIn(stage, events)
+        events.clear()
+        self.workflow.generate(self.request())
+        self.assertIn("reusing_model", events)
+        self.assertIn("reusing_loras", events)
+        self.assertNotIn("loading_model", events)
+        self.assertNotIn("loading_loras", events)
+        events.clear()
+        self.workflow.generate(self.request(loras=[]))
+        self.assertIn("resetting_loras", events)
+        self.assertIs(self.workflow._model, self.base_models[0])
 
     def test_base_reuse_and_adapter_changes_start_from_unpatched_model(self):
         self.workflow.generate(self.request())
@@ -311,7 +362,9 @@ class MiniMaxFormTests(unittest.TestCase):
         self.assertNotIn("High-noise adapters", response.get_data(as_text=True))
         data = page.data()
         data["prompt"] = "A lake"
-        data["input_image"] = (BytesIO(b"preview"), "lake.png")
+        source = BytesIO()
+        Image.new("RGB", (32, 32), "navy").save(source, format="PNG")
+        data["input_image"] = (BytesIO(source.getvalue()), "lake.png")
         response = self.client.post("/generate/fixture-minimax", data=data)
         self.assertEqual(response.status_code, 200)
         preview = FormPage(response.get_data(as_text=True)).preview
