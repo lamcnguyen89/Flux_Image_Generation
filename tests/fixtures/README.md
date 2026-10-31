@@ -17,3 +17,6 @@ or `/generate/fixture-minimax`.
 Enter a prompt and click **Preview request**. WAN and MiniMax additionally require selecting
 a source image. Previews validate form settings only and do not save images,
 files, overrides, or jobs. Reloading restores the fixture's saved settings.
+
+Krea 2 RAW has a `/generate/fixture-krea2` form and two synthetic adapter entries.
+Its weights are intentionally absent, like the other image family fixtures.

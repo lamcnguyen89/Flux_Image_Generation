@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "lora_e4824b82-d4d3-42d8-9b46-b99942bb216d",
+  "display_name": "Vérité realism (Krea 2)",
+  "description": "Local Vérité realism adapter selected by the working Krea 2 notebook.",
+  "family": "krea2",
+  "adapter_type": "lora",
+  "source_url": null,
+  "source_model_id": null,
+  "source_version_id": null,
+  "weights": "Verite_realism.safetensors",
+  "sha256": null,
+  "notes_file": "Krea2_NSFW.md",
+  "preview_image": null,
+  "compatibility": {
+    "model_variant": "krea_2_raw",
+    "trained_on": null,
+    "verified_checkpoint_ids": [],
+    "notes": "Krea 2 compatibility is declared by the local notes and working notebook selection. No workflow verification is claimed."
+  },
+  "settings": {
+    "strength": 0.8,
+    "trigger_words": [],
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {}
+  }
+}

@@ -3,10 +3,10 @@
 Local image and video generation with a Flask model catalog and generation forms.
 Model assets and experiment notebooks live in `Models/Model_Families/`.
 See the [model folder layout](Models/Model_Families/README.md) for the checkpoint
-and LoRA folders, SDXL/FLUX/WAN configurations, and reusable JSON examples.
+and LoRA folders, family configurations, and reusable JSON examples.
 
-The application is in `src/image_generator/`. SDXL and FLUX text-to-image and
-WAN 2.2 image-to-video generation have reusable backends and command-line runners.
+The application is in `src/image_generator/`. SDXL, FLUX, and Krea 2 text-to-image
+and WAN 2.2 image-to-video generation have reusable backends and command-line runners.
 The notebooks remain independent experiments.
 
 Catalog discovery, manifest validation, and settings resolution are implemented
@@ -18,11 +18,11 @@ Run `.venv/bin/python main.py` and open <http://127.0.0.1:5000> to browse the
 catalog and inspect each model's resolved settings and linked LoRAs. See the
 [web interface guide](Documents/Web_Interface.md) for configuration and tests.
 
-Choose **Configure generation** to edit SDXL, FLUX, WAN, or MiniMax settings and preview
+Choose **Configure generation** to edit SDXL, FLUX, Krea 2, WAN, or MiniMax settings and preview
 the typed request. For a demo without weights or a GPU, run
 `IMAGE_GENERATOR_CATALOG_ROOT=tests/fixtures/model_families .venv/bin/python main.py`.
 See [generation UI testing](Documents/Generation_UI.md) for the workflow contract,
-fixture pages, and automated/manual checks. SDXL, FLUX, WAN, and MiniMax support queue submission
+fixture pages, and automated/manual checks. SDXL, FLUX, Krea 2, WAN, and MiniMax support queue submission
 and live progress. WAN and MiniMax save uploaded sources and display playable MP4 results,
 conditioning images, and actual output details. The forms also save/reset model settings and shared adapter
 defaults, retain disabled LoRAs, and support checkpoint-specific strengths.
@@ -60,6 +60,17 @@ WAN outputs MP4, conditioning PNG, and JSON files under `Videos/`, processing
 variations one at a time. Both runners support `--dry-run`. See the
 [FLUX guide](Documents/FLUX_Workflow.md) and [WAN guide](Documents/WAN_Workflow.md)
 for family-specific settings, adapters, and Python APIs.
+
+Krea 2 RAW also has a catalog workflow and matching generation UI:
+
+```bash
+.venv/bin/python scripts/generate_krea2.py \
+  --prompt "A mountain lake at sunrise" --seed 42 --no-loras
+```
+
+See the [Krea 2 workflow](Documents/Krea2_Workflow.md) and
+[Krea 2 web UI](Documents/Krea2_UI_Execution.md) for RAW guidance, LoRAs,
+runtime configuration, and validation.
 
 Run `bash scripts/setup.sh` to install SDXL, FLUX, WAN, and MiniMax H3 into the
 shared `.venv`, including the native ComfyUI checkout and dependencies for MiniMax.

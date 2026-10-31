@@ -156,13 +156,18 @@ class WebTests(unittest.TestCase):
         model = json.loads((self.root / "SDXL/checkpoints/new-upload/model.defaults.json").read_text())
         self.assertEqual(self.client.get(f"/models/{model['id']}").status_code, 200)
 
-    def test_initialization_failure_shows_catalog_diagnostic(self):
-        directory = self.root / "FLUX/checkpoints/new-upload"
-        directory.mkdir(parents=True)
-        (directory / "uploaded.safetensors").touch()
-        response = self.client.get("/")
-        self.assertEqual(response.status_code, 503)
-        self.assertIn("model.defaults.example.json", response.get_data(as_text=True))
+    def test_incomplete_family_does_not_block_catalog_or_configured_model_pages(self):
+        for folder in ("checkpoints", "loras"):
+            directory = self.root / "Krea2" / folder / "new-upload"
+            directory.mkdir(parents=True)
+            (directory / "uploaded.safetensors").touch()
+        for url in ("/", "/models/demo-model", "/generate/demo-model"):
+            with self.subTest(url=url), self.assertLogs("image_generator.catalog.initialization", level="WARNING"):
+                response = self.client.get(url)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("Demo checkpoint", response.get_data(as_text=True))
+            self.assertNotIn("new-upload", response.get_data(as_text=True))
+        self.assertFalse(list((self.root / "Krea2").rglob("*.json")))
 
     def test_unknown_model_and_lora_id_return_404(self):
         self.write_lora()

@@ -304,3 +304,10 @@ checkpoint and LoRA examples, recording the correct variant and expert target.
 Models
 consisting of multiple components can keep those components together in one
 model folder.
+
+## Krea 2 RAW
+
+Krea 2 has a [catalog configuration and family templates](Krea2/README.md),
+a [reusable workflow](../../Documents/Krea2_Workflow.md), and a
+[matching generation UI](../../Documents/Krea2_UI_Execution.md). The working
+notebook stays independent. RAW guidance and its native Krea2 loader are used.

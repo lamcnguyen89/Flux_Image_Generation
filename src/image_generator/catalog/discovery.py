@@ -91,6 +91,8 @@ def discover_catalog(root: str | Path, *, initialize_missing: bool = True) -> Ca
     """Index <family>/{checkpoints,loras}/<asset> manifests by permanent ID.
 
     Missing manifests are initialized from family examples before discovery.
+    Assets without defaults that cannot yet be initialized are skipped with a
+    warning, so an unfinished family does not prevent loading configured assets.
     Set initialize_missing=False for strictly read-only inspection, where a
     missing user file means no overrides. Only exact defaults filenames register
     entries; example files themselves are ignored.

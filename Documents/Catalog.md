@@ -25,7 +25,8 @@ directory. A custom relative `--root` is relative to the working directory.
 
 Invalid catalog data and unknown IDs exit with status 1. Validation errors name
 the source file and field; `--json` returns an `errors` list. Discovery collects
-errors across files and never returns a partially valid catalog. An existing,
+errors across configured files. Assets without defaults that cannot yet be
+initialized are skipped with a warning; they do not block configured assets. An existing,
 empty root is a valid empty catalog; a missing root is an error.
 
 ## Python API
@@ -90,7 +91,14 @@ permanent UUID, uses the asset folder name for display, and detects a single
 local `.safetensors` file. WAN model templates instead detect a complete pipeline
 in the asset folder or one immediate child; without local weights, WAN's
 pretrained template repository is retained. Multiple candidate files/pipelines,
-missing templates, and incomplete WAN checkpoints produce actionable errors.
+missing templates, and incomplete WAN checkpoints prevent automatic registration.
+Catalog loading skips these unfinished assets and logs their paths and the
+reason, allowing other models and LoRAs to remain available while a new family
+is being set up. No manifests are created for skipped assets; they are retried
+on the next load and appear once initialization succeeds. Malformed templates,
+invalid existing manifests, and permission or other I/O failures remain errors.
+An explicit `initialize_asset(...)` call still reports incomplete assets as
+`CatalogValidationError` so upload handlers can request the missing information.
 
 Numerical settings and pipeline requirements come from the template and need
 review for the actual checkpoint. Illustrative prompts, trigger words, links,

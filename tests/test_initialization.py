@@ -160,12 +160,72 @@ class InitializationTests(unittest.TestCase):
         template = directory.parent / "model.defaults.example.json"
         template.unlink()
         with self.assertRaises(CatalogValidationError) as context:
-            discover_catalog(self.root)
+            initialize_asset(directory)
         self.assertEqual(context.exception.issues[0].path, template)
         template.write_text('{"schema_version":1}', encoding="utf-8")
         with self.assertRaises(CatalogValidationError):
-            initialize_asset(directory)
+            discover_catalog(self.root)
         self.assertFalse((directory / "model.defaults.json").exists())
+
+    def test_missing_family_templates_skip_assets_and_recover_when_added(self):
+        ready = self.asset()
+        incomplete = []
+        for folder, kind in (("checkpoints", "model"), ("loras", "lora")):
+            directory = self.root / "Krea2" / folder / "new-asset"
+            directory.mkdir(parents=True)
+            (directory / "weights.safetensors").touch()
+            # Preserve overrides even if defaults cannot yet be created.
+            user = directory / f"{kind}.user.json"
+            user.write_text('{"schema_version":1,"settings":{"width":768}}', encoding="utf-8")
+            incomplete.append((directory, kind, user.read_bytes()))
+
+        with self.assertLogs("image_generator.catalog.initialization", level="WARNING") as logs:
+            catalog = discover_catalog(self.root)
+        self.assertEqual(len(catalog.models), 1)
+        self.assertEqual(catalog.loras, {})
+        self.assertEqual(next(iter(catalog.models.values())).manifest_path.parent, ready)
+        self.assertEqual(len(logs.output), 2)
+        for directory, kind, original_user in incomplete:
+            self.assertTrue(any(str(directory) in message and f"{kind}.defaults.example.json" in message
+                                for message in logs.output))
+            self.assertFalse((directory / f"{kind}.defaults.json").exists())
+            self.assertEqual((directory / f"{kind}.user.json").read_bytes(), original_user)
+            shutil.copyfile(
+                self.root / "SDXL" / directory.parent.name / f"{kind}.defaults.example.json",
+                directory.parent / f"{kind}.defaults.example.json",
+            )
+
+        catalog = discover_catalog(self.root)
+        self.assertEqual(len(catalog.models), 2)
+        self.assertEqual(len(catalog.loras), 1)
+        for asset in (*catalog.models.values(), *catalog.loras.values()):
+            if asset.family == "krea2":
+                self.assertEqual(asset.resolve_settings()["width"], 768)
+
+    def test_incomplete_weights_skip_only_the_unconfigured_assets(self):
+        ready = self.asset(name="ready")
+        ambiguous = self.asset(name="ambiguous")
+        (ambiguous / "second.safetensors").touch()
+        wan = self.asset("WAN")
+        (wan / "model_index.json").unlink()
+        (wan / "transformer.safetensors").touch()
+        with self.assertLogs("image_generator.catalog.initialization", level="WARNING") as logs:
+            catalog = discover_catalog(self.root)
+        self.assertEqual(len(catalog.models), 1)
+        self.assertEqual(next(iter(catalog.models.values())).manifest_path.parent, ready)
+        self.assertEqual(len(logs.output), 2)
+        for directory in (ambiguous, wan):
+            self.assertFalse((directory / "model.defaults.json").exists())
+            self.assertFalse((directory / "model.user.json").exists())
+
+    def test_unreadable_template_is_an_error_rather_than_an_incomplete_asset(self):
+        directory = self.asset()
+        template = directory.parent / "model.defaults.example.json"
+        template.unlink()
+        template.mkdir()
+        with self.assertRaises(CatalogValidationError) as context:
+            discover_catalog(self.root)
+        self.assertEqual(context.exception.issues[0].path, template)
 
     def test_invalid_existing_json_and_broken_symlinks_are_never_replaced(self):
         directory = self.asset()

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "lora_REPLACE_WITH_GENERATED_UUID",
+  "display_name": "Example Krea 2 LoRA",
+  "description": "Krea 2 adapter configuration. Replace identity, asset paths, and compatibility metadata before use.",
+  "family": "krea2",
+  "adapter_type": "lora",
+  "source_url": null,
+  "source_model_id": null,
+  "source_version_id": null,
+  "weights": "example_krea2_lora.safetensors",
+  "sha256": null,
+  "notes_file": null,
+  "preview_image": null,
+  "compatibility": {
+    "model_variant": "krea_2_raw",
+    "trained_on": null,
+    "verified_checkpoint_ids": [],
+    "notes": ""
+  },
+  "settings": {
+    "strength": 0.8,
+    "trigger_words": [],
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "negative_prompt": "",
+    "recommended_generation": {}
+  }
+}

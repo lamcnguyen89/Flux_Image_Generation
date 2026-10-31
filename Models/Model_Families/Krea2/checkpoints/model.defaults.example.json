@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "model_REPLACE_WITH_GENERATED_UUID",
+  "display_name": "Example Krea 2 RAW Checkpoint",
+  "description": "Krea 2 RAW transformer configuration. Replace identity and asset paths before use.",
+  "family": "krea2",
+  "workflow": "krea2",
+  "model_variant": "krea_2_raw",
+  "weights_component": "transformer",
+  "source_url": null,
+  "source_model_id": null,
+  "source_version_id": null,
+  "weights": "example_krea2_transformer.safetensors",
+  "sha256": null,
+  "base_model_id": "krea/Krea-2-Raw",
+  "notes_file": null,
+  "preview_image": null,
+  "supported_modes": [
+    "txt2img"
+  ],
+  "requirements": {
+    "dimension_multiple": 16,
+    "max_sequence_length_limit": 512,
+    "scheduler_class": "FlowMatchEulerDiscreteScheduler",
+    "scheduler_config": {},
+    "allowed_sampling": [
+      {
+        "sampler": "flow_match_euler",
+        "noise_schedule": "default"
+      }
+    ]
+  },
+  "settings": {
+    "prompt": "",
+    "negative_prompt": "",
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "trigger_words": [],
+    "width": 1024,
+    "height": 1024,
+    "num_images_per_prompt": 1,
+    "num_inference_steps": 52,
+    "guidance_scale": 3.5,
+    "max_sequence_length": 512,
+    "seed": null,
+    "sampling": {
+      "sampler": "flow_match_euler",
+      "noise_schedule": "default"
+    },
+    "loras": []
+  }
+}

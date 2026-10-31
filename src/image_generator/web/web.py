@@ -10,7 +10,7 @@ catalog_bp = Blueprint(
     static_folder="static", static_url_path="/catalog-assets",
 )
 
-FAMILY_ORDER = {"flux": 0, "sdxl": 1, "minimax": 2, "wan": 3}
+FAMILY_ORDER = {"flux": 0, "krea2": 1, "sdxl": 2, "minimax": 3, "wan": 4}
 
 
 def get_catalog():

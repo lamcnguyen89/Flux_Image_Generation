@@ -8,6 +8,7 @@ from .base import Workflow
 WORKFLOWS = {
     "sdxl": ("image_generator.workflows.sdxl", "SDXLWorkflow"),
     "flux": ("image_generator.workflows.flux", "FluxWorkflow"),
+    "krea2": ("image_generator.workflows.krea2", "Krea2Workflow"),
     "wan": ("image_generator.workflows.wan", "WanWorkflow"),
     "minimax": ("image_generator.workflows.minimax", "MiniMaxWorkflow"),
 }

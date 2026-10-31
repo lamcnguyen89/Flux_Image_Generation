@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 import json
+import logging
 import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -13,6 +14,11 @@ from .validation import (
 
 
 KINDS = {"checkpoints": "model", "loras": "lora"}
+logger = logging.getLogger(__name__)
+
+
+class _IncompleteAssetError(CatalogValidationError):
+    """An asset needs more files or explicit metadata before auto-registration."""
 
 
 def _exists(path: Path) -> bool:
@@ -59,7 +65,7 @@ def _weight_path(directory: Path, kind: str, template: dict) -> str | None:
         candidates = _weight_files(directory)
     if len(candidates) != 1:
         expected = "a complete pipeline directory" if template.get("weights_component") == "pipeline" else "one .safetensors file"
-        raise CatalogValidationError([ValidationIssue(
+        raise _IncompleteAssetError([ValidationIssue(
             directory / f"{kind}.defaults.json", "weights",
             f"Cannot determine weights; expected {expected}. "
             "Call initialize_asset(..., weights=...) or supply explicit metadata for this asset.",
@@ -94,7 +100,12 @@ def initialize_asset(
     try:
         if not _exists(defaults_path):
             template_path = directory.parent / f"{kind}.defaults.example.json"
-            document = load_json(template_path)
+            try:
+                document = load_json(template_path)
+            except CatalogValidationError as exc:
+                if isinstance(exc.__cause__, FileNotFoundError):
+                    raise _IncompleteAssetError(exc.issues) from exc
+                raise
             issues = validate_defaults(document, template_path, kind)
             if issues:
                 raise CatalogValidationError(issues)
@@ -152,6 +163,9 @@ def initialize_catalog(root: str | Path) -> tuple[Path, ...]:
 
     Recognize existing manifests, loose safetensors, and complete pipeline
     directories. Ignore empty, hidden, and unrelated folders and example files.
+    Skip assets whose defaults cannot yet be created because their family
+    template or unambiguous weights are missing, logging the reason. Invalid
+    configuration and I/O failures still produce aggregated errors.
     """
     root = Path(root).expanduser().resolve()
     if not root.is_dir():
@@ -171,6 +185,8 @@ def initialize_catalog(root: str | Path) -> tuple[Path, ...]:
                 )
                 if recognized:
                     created.extend(initialize_asset(directory))
+            except _IncompleteAssetError as exc:
+                logger.warning("Skipping incomplete %s asset %s: %s", kind, directory, exc)
             except CatalogValidationError as exc:
                 issues.extend(exc.issues)
             except OSError as exc:

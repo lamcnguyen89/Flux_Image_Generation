@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "id": "model_43359779-6bc0-4f45-8b70-39a2edff93fa",
+  "display_name": "Krea 2 RAW",
+  "description": "Undistilled Krea 2 RAW, using the local transformer and the notebook’s 52-step CFG 3.5 preset.",
+  "family": "krea2",
+  "workflow": "krea2",
+  "model_variant": "krea_2_raw",
+  "weights_component": "transformer",
+  "source_url": "https://huggingface.co/krea/Krea-2-Raw",
+  "source_model_id": null,
+  "source_version_id": null,
+  "weights": "krea2Raw_v10_bf16.safetensors",
+  "sha256": null,
+  "base_model_id": "krea/Krea-2-Raw",
+  "notes_file": "Krea2_Raw.md",
+  "preview_image": null,
+  "supported_modes": [
+    "txt2img"
+  ],
+  "requirements": {
+    "dimension_multiple": 16,
+    "max_sequence_length_limit": 512,
+    "scheduler_class": "FlowMatchEulerDiscreteScheduler",
+    "scheduler_config": {},
+    "allowed_sampling": [
+      {
+        "sampler": "flow_match_euler",
+        "noise_schedule": "default"
+      }
+    ]
+  },
+  "settings": {
+    "prompt": "",
+    "negative_prompt": "",
+    "positive_prefix": "",
+    "positive_suffix": "",
+    "trigger_words": [],
+    "width": 1024,
+    "height": 1024,
+    "num_images_per_prompt": 1,
+    "num_inference_steps": 52,
+    "guidance_scale": 3.5,
+    "max_sequence_length": 512,
+    "seed": 42,
+    "sampling": {
+      "sampler": "flow_match_euler",
+      "noise_schedule": "default"
+    },
+    "loras": [
+      {
+        "id": "lora_e4824b82-d4d3-42d8-9b46-b99942bb216d",
+        "enabled": true,
+        "strength": 0.8
+      }
+    ]
+  }
+}
