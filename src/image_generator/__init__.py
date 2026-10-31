@@ -12,6 +12,7 @@ def create_app(config=None):
     from .web.generation_routes import generation_bp
     from .web.job_routes import jobs_bp
     from .web.settings_routes import settings_bp
+    from .web.system_routes import system_bp
 
     app = Flask(__name__, static_folder=None)
     app.config.from_mapping(
@@ -33,4 +34,5 @@ def create_app(config=None):
     app.register_blueprint(generation_bp)
     app.register_blueprint(jobs_bp)
     app.register_blueprint(settings_bp)
+    app.register_blueprint(system_bp)
     return app

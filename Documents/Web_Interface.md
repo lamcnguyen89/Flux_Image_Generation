@@ -66,6 +66,19 @@ factory CLI:
 
 ## Pages
 
+Every page includes a **Shared Memory** card beside the header menu. It refreshes
+every three seconds with system RAM usage, a usage bar, percentage, and used/total
+GiB. On unified-memory hosts, this is the physical pool shared by CPU and GPU;
+reclaimable caches count as available memory.
+
+**Clear all models** asks the generation worker to release its cached workflow,
+including checkpoint, adapters, and runtime model caches. An active generation
+finishes first; cleanup runs before the next queued job. The card confirms when
+cleanup completes or reports an error if the worker is unavailable. Queued jobs
+continue normally and load their models again as needed. Other processes' models
+are outside this application's control. Restart the web server and worker after
+updating to enable these controls.
+
 - `/` lists discovered models grouped by family, their declared modes, and
   registered LoRA counts. Choose **View settings** to inspect a model.
 - `/models/<model_id>` shows model metadata, effective settings, saved linked

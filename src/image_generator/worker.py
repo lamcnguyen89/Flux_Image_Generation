@@ -130,6 +130,18 @@ class Worker:
             self._workflow_name = name
         return self._workflow
 
+    def _process_model_unloads(self):
+        identifiers = self.store._pending_model_unloads(self.id)
+        if not identifiers:
+            return
+        try:
+            self._close_workflow()
+        except WorkerCleanupError:
+            self.store._finish_model_unloads(self.id, identifiers, "Model cleanup failed. Restart the generation worker.")
+            raise
+        self.store._finish_model_unloads(self.id, identifiers)
+        LOGGER.info("Worker %s cleared loaded models", self.id)
+
     def _report_progress(self, job_id, event):
         self._check_health()
         now = monotonic()
@@ -149,6 +161,7 @@ class Worker:
         self._check_health()
         if self._stop.is_set():
             return None
+        self._process_model_unloads()
         job = self.store._claim_next(self.id)
         if job is None:
             return None
@@ -211,6 +224,7 @@ class Worker:
             if self._workflow is not None:
                 self._workflow.set_progress_callback(None)
             self.current_job_id = None
+        self._process_model_unloads()
         result = self.store.get(job.id)
         LOGGER.info("Job %s %s", job.id, result.status)
         return result

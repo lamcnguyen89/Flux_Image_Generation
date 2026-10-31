@@ -103,6 +103,10 @@ class JobStore:
             connection.execute("CREATE INDEX IF NOT EXISTS job_events_job ON job_events(job_id,sequence)")
             connection.execute("""CREATE TABLE IF NOT EXISTS job_submissions (
                 key TEXT PRIMARY KEY, job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id), request_hash TEXT NOT NULL)""")
+            connection.execute("""CREATE TABLE IF NOT EXISTS model_unload_requests (
+                id TEXT PRIMARY KEY, worker_id TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN ('pending','completed','failed')),
+                created_at TEXT NOT NULL, finished_at TEXT, error TEXT)""")
             connection.execute("PRAGMA user_version=2")
 
     @contextmanager
@@ -208,10 +212,49 @@ class JobStore:
             row = connection.execute("SELECT * FROM worker_state WHERE singleton=1").fetchone()
             return dict(row) if row else None
 
+    def request_model_unload(self) -> dict:
+        """Ask the current worker to release models on its owner thread."""
+        with self._transaction() as connection:
+            worker = connection.execute("SELECT * FROM worker_state WHERE singleton=1").fetchone()
+            if worker is None or worker["status"] != "running" or (
+                datetime.now(timezone.utc) - datetime.fromisoformat(worker["heartbeat_at"])
+            ).total_seconds() > 15:
+                raise ValueError("The generation worker is unavailable. Start it before clearing models.")
+            pending = connection.execute(
+                "SELECT * FROM model_unload_requests WHERE worker_id=? AND status='pending'",
+                (worker["id"],),
+            ).fetchone()
+            if pending is not None:
+                return dict(pending)
+            identifier = uuid4().hex
+            connection.execute("""INSERT INTO model_unload_requests(id,worker_id,status,created_at)
+                VALUES (?,?,'pending',?)""", (identifier, worker["id"], _now()))
+            return dict(connection.execute("SELECT * FROM model_unload_requests WHERE id=?", (identifier,)).fetchone())
+
+    def model_unload_status(self, identifier) -> dict:
+        with self._connection() as connection:
+            row = connection.execute("SELECT * FROM model_unload_requests WHERE id=?", (identifier,)).fetchone()
+            if row is None:
+                raise KeyError(identifier)
+            return dict(row)
+
+    def _pending_model_unloads(self, worker_id):
+        with self._connection() as connection:
+            return [row[0] for row in connection.execute(
+                "SELECT id FROM model_unload_requests WHERE worker_id=? AND status='pending'", (worker_id,))]
+
+    def _finish_model_unloads(self, worker_id, identifiers, error=None):
+        with self._transaction() as connection:
+            connection.executemany("""UPDATE model_unload_requests SET status=?,finished_at=?,error=?
+                WHERE id=? AND worker_id=? AND status='pending'""",
+                [("failed" if error else "completed", _now(), error, identifier, worker_id) for identifier in identifiers])
+
     # Worker mutations are private: the Worker holds the OS lock throughout them.
     def _start_worker(self, identifier, pid):
         now = _now()
         with self._transaction() as connection:
+            connection.execute("""UPDATE model_unload_requests SET status='failed',finished_at=?,
+                error='The previous worker exited before confirming model cleanup. Try again.' WHERE status='pending'""", (now,))
             for row in connection.execute("SELECT id FROM jobs WHERE status='running'").fetchall():
                 self._event(connection, row["id"], "interrupted")
             connection.execute("""UPDATE jobs SET status='interrupted', stage='interrupted',
@@ -232,6 +275,9 @@ class JobStore:
 
     def _stop_worker(self, identifier):
         with self._transaction() as connection:
+            connection.execute("""UPDATE model_unload_requests SET status='failed',finished_at=?,
+                error='The worker stopped before confirming model cleanup. Restart it and try again.'
+                WHERE worker_id=? AND status='pending'""", (_now(), identifier))
             connection.execute("UPDATE worker_state SET status='stopped', stopped_at=?, heartbeat_at=? WHERE id=?",
                                (_now(), _now(), identifier))
 

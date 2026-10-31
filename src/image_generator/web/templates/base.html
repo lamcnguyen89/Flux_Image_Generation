@@ -3,25 +3,42 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Model catalog{% endblock %} · Image Generator</title>
+  <title>{% block title %}Midnight Generator{% endblock %} - Uncensored</title>
   <link rel="stylesheet" href="{{ url_for('catalog.static', filename='catalog.css') }}">
   <script src="{{ url_for('catalog.static', filename='navigation.js') }}" defer></script>
+  <script src="{{ url_for('catalog.static', filename='memory.js') }}" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
     <a class="brand" href="{{ url_for('catalog.index') }}">Midnight Generator</a>
-    <details class="header-menu">
-      <summary>Menu</summary>
-      <nav class="header-menu-links" aria-label="Main navigation">
-        <a href="{{ url_for('catalog.index') }}"{% if request.endpoint == 'catalog.index' %} aria-current="page"{% endif %}>Model Catalog</a>
-        <a href="{{ url_for('jobs.index') }}"{% if request.endpoint == 'jobs.index' %} aria-current="page"{% endif %}>Generation History</a>
-      </nav>
-    </details>
+    <div class="header-actions">
+      <section class="memory-card" aria-label="System shared memory"
+               data-memory-url="{{ url_for('system.memory') }}"
+               data-unload-url="{{ url_for('system.unload_models') }}"
+               data-csrf-token="{{ system_csrf_token }}">
+        <div class="memory-meter" title="System RAM used by the CPU and GPU, excluding reclaimable caches">
+          <div class="memory-heading"><span>Shared Memory</span><strong data-memory-percent>—</strong></div>
+          <progress data-memory-bar max="100" aria-label="System shared memory usage"></progress>
+          <span class="memory-detail" data-memory-detail>Reading system memory…</span>
+        </div>
+        <button class="clear-models" type="button" data-clear-models
+                title="Unload all cached models after the active generation finishes. Queued jobs continue normally.">Clear all models</button>
+        <p class="memory-status" data-memory-status role="status" aria-live="polite" hidden></p>
+        <noscript><span class="memory-detail">Enable JavaScript for memory controls.</span></noscript>
+      </section>
+      <details class="header-menu">
+        <summary>Menu</summary>
+        <nav class="header-menu-links" aria-label="Main navigation">
+          <a href="{{ url_for('catalog.index') }}"{% if request.endpoint == 'catalog.index' %} aria-current="page"{% endif %}>Model Catalog</a>
+          <a href="{{ url_for('jobs.index') }}"{% if request.endpoint == 'jobs.index' %} aria-current="page"{% endif %}>Generation History</a>
+        </nav>
+      </details>
+    </div>
   </header>
   <main id="main" tabindex="-1">{% block content %}{% endblock %}</main>
-  <footer>Image Generator · Model catalog</footer>
+  <footer>Midnight Generator · Uncensored</footer>
   {% block scripts %}{% endblock %}
 </body>
 </html>
