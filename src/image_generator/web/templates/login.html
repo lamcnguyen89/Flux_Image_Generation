@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in - Midnight Generator</title>
+  <link rel="stylesheet" href="{{ url_for('catalog.static', filename='catalog.css') }}">
+</head>
+<body>
+  <main class="login-page">
+    <section class="card login-card" aria-labelledby="login-title">
+      <h1 id="login-title">Midnight Generator</h1>
+      <p class="muted">Enter the service password to continue.</p>
+      <form method="post" action="{{ url_for('auth.login', next=next_page) }}" class="login-form">
+        <input type="hidden" name="csrf_token" value="{{ system_csrf_token }}">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required autofocus{% if error %} aria-invalid="true" aria-describedby="login-error"{% endif %}>
+        {% if error %}<p id="login-error" class="login-error" role="alert">{{ error }}</p>{% endif %}
+        <button type="submit">Sign in</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

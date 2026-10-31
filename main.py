@@ -10,4 +10,7 @@ from image_generator import create_app
 
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parent / ".env")
     create_app().run()

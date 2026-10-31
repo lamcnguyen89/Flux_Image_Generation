@@ -4,6 +4,7 @@
 def create_app(config=None):
     """Create the catalog, generation forms, and job UI without GPU imports."""
     from pathlib import Path
+    import os
     from secrets import token_hex
 
     from flask import Flask
@@ -13,6 +14,7 @@ def create_app(config=None):
     from .web.job_routes import jobs_bp
     from .web.settings_routes import settings_bp
     from .web.system_routes import system_bp
+    from .web.auth_routes import auth_bp
 
     app = Flask(__name__, static_folder=None)
     app.config.from_mapping(
@@ -24,12 +26,18 @@ def create_app(config=None):
         MAX_CONTENT_LENGTH=24 * 1024 * 1024,
         INPUT_MAX_BYTES=20 * 1024 * 1024,
         INPUT_MAX_PIXELS=25_000_000,
+        SESSION_COOKIE_SAMESITE="Lax",
     )
     app.config.from_prefixed_env(prefix="IMAGE_GENERATOR")
+    # Passwords such as "1234" or "false" must stay strings, not parsed JSON.
+    app.config["ACCESS_PASSWORD"] = os.environ.get("IMAGE_GENERATOR_ACCESS_PASSWORD", "")
     if config is not None:
         app.config.update(config)
     if not app.config.get("SECRET_KEY"):
         app.config["SECRET_KEY"] = token_hex(32)
+    if not isinstance(app.config["ACCESS_PASSWORD"], str):
+        raise ValueError("ACCESS_PASSWORD must be a string")
+    app.register_blueprint(auth_bp)
     app.register_blueprint(catalog_bp)
     app.register_blueprint(generation_bp)
     app.register_blueprint(jobs_bp)

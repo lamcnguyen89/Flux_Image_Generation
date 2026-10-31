@@ -64,6 +64,32 @@ factory CLI:
 .venv/bin/python -m flask --app image_generator:create_app run
 ```
 
+## Password protection
+
+Set a shared password in the project's `.env` file and restart the service:
+
+```dotenv
+IMAGE_GENERATOR_ACCESS_PASSWORD="your-password-here"
+```
+
+Visitors must sign in before opening any app page, using an API, submitting an
+upload, or viewing/downloading generated media and metadata. The sign-in page
+and its stylesheet remain public. Unauthenticated API requests return JSON
+with status 401. **Menu → Sign out** ends the current browser session.
+Passwords are compared exactly, including spaces; numeric-looking passwords
+also work. Leave the setting empty or unset to disable the gate.
+
+Both `scripts/start.sh` and `main.py` load the project's `.env`; values already
+exported in the shell take precedence. Restart after changing the password.
+Sessions normally end when the browser session ends or the server restarts.
+Optionally set `IMAGE_GENERATOR_SECRET_KEY` to a long random string to preserve
+sessions across restarts or share sessions between web processes. Changing the
+access password still invalidates existing sign-ins.
+
+This is a shared-password gate for casual access control. HTTP does not encrypt
+the password or session cookie; use HTTPS if you need encrypted access.
+The command-line runners and local files remain available to the server's user.
+
 ## Pages
 
 Every page includes a **Shared Memory** card beside the header menu. It refreshes

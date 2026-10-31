@@ -1,4 +1,4 @@
-"""Same-session protection for generation submissions."""
+"""Same-session protection for form submissions and model controls."""
 
 from hmac import compare_digest
 from secrets import token_urlsafe
@@ -14,4 +14,5 @@ def csrf_token():
 
 def valid_csrf(value):
     expected = session.get("generation_csrf")
-    return isinstance(expected, str) and isinstance(value, str) and compare_digest(expected, value)
+    return (isinstance(expected, str) and isinstance(value, str)
+            and compare_digest(expected.encode("utf-8"), value.encode("utf-8")))
